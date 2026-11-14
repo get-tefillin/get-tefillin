@@ -86,9 +86,27 @@ async function main() {
     check("mode available ok", r.j && r.j.ok === true, r.j);
     check("mode response carries merge keys", r.j && "hours" in r.j && "push_devices" in r.j, r.j);
 
+    /* shaliach sets his own photo */
+    const shJpeg = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.alloc(300, 7), Buffer.from([0xff, 0xd9])]);
+    let spr = await fetch(BASE + "/api/shaliach/photo", { method: "POST", headers: { "content-type": "image/jpeg", "x-token": shTok }, body: shJpeg });
+    let spj = await spr.json();
+    check("shaliach photo upload ok", spr.status === 200 && spj.ok && typeof spj.photo === "string", spj);
+    const shPhotoId = spj.photo;
+    spr = await fetch(BASE + "/api/shaliach/photo", { method: "POST", headers: { "content-type": "image/png", "x-token": shTok }, body: shJpeg });
+    spj = await spr.json();
+    check("shaliach photo rejects non-jpeg", spj && spj.ok === false && spj.code === "photo_type", spj);
+    spr = await fetch(BASE + "/api/shaliach/photo", { method: "POST", headers: { "content-type": "image/jpeg" }, body: shJpeg });
+    spj = await spr.json();
+    check("shaliach photo requires token", spj && spj.ok === false && spj.code === "auth", spj);
+    spr = await fetch(BASE + "/api/shaliach/photo/" + shPhotoId);
+    check("shaliach photo is public", spr.status === 200 && (spr.headers.get("content-type") || "").indexOf("image/jpeg") === 0, spr.status);
+    r = await j("POST", "/api/shaliach/poll", { tz: "Asia/Jerusalem" }, shTok);
+    check("me view carries photo", r.j && r.j.me && r.j.me.photo === shPhotoId, r.j && r.j.me);
+
     /* nearby now shows the shaliach */
     r = await j("GET", "/api/nearby?lat=" + RQ_POS[0] + "&lng=" + RQ_POS[1] + "&lang=he");
     check("nearby shows available shaliach", r.j && r.j.shluchim.length === 1 && typeof r.j.shluchim[0].km === "number" && r.j.shluchim[0].eta_min > 0, r.j);
+    check("nearby card carries photo", r.j && r.j.shluchim[0].photo === shPhotoId, r.j && r.j.shluchim);
 
     /* create request */
     r = await j("POST", "/api/request", { first_name: "מזמין בדיקה", phone: "0527654321", lat: RQ_POS[0], lng: RQ_POS[1], address: "רמת גן", device: "testdev1", loc_source: "gps", lang: "he" });
@@ -116,6 +134,7 @@ async function main() {
     check("accept ok", r.j && r.j.ok === true, r.j);
     r = await j("GET", "/api/request/" + reqId, null, reqTok);
     check("requester sees accepted + shaliach card", r.j && r.j.status === "accepted" && r.j.shaliach && r.j.shaliach.name === "שליח בדיקה" && r.j.shaliach.phone === "0501112233", r.j);
+    check("requester card carries photo", r.j && r.j.shaliach && r.j.shaliach.photo === shPhotoId, r.j && r.j.shaliach);
 
     /* chat both directions */
     r = await j("POST", "/api/request/" + reqId + "/say", { text: "איפה אתה?", lang: "he" }, reqTok);

@@ -90,12 +90,12 @@ function renderNearby(){
   if(U.pos&&!n){var li=document.createElement("li");li.className="empty";li.textContent=t("none_near_hint");ul.appendChild(li)}
   sortedNearby().slice(0,3).forEach(function(s){
     var li=document.createElement("li");
-    li.innerHTML=avatarHtml(s.name)+'<div class="vl-main"><b>'+esc(s.name)+'</b><span>'+fmtKm(s.km)+' · '+esc(t(s.transport))+'</span>'+speaksLine(s.langs)+'</div><div class="vl-eta"><b>'+esc(t("min",{n:s.eta_min}))+'</b><span>'+esc(t("approx"))+'</span></div>';
+    li.innerHTML=avatarHtml(s.name,null,s.photo)+'<div class="vl-main"><b>'+esc(s.name)+'</b><span>'+fmtKm(s.km)+' · '+esc(t(s.transport))+'</span>'+speaksLine(s.langs)+'</div><div class="vl-eta"><b>'+esc(t("min",{n:s.eta_min}))+'</b><span>'+esc(t("approx"))+'</span></div>';
     ul.appendChild(li)});
   drawHome();
 }
 function initialOf(n){n=String(n||"").trim();return n?Array.from(n)[0].toUpperCase():""}
-function avatarHtml(n,cls){var i=initialOf(n);return i?'<div class="avatar initial'+(cls?" "+cls:"")+'">'+esc(i)+'</div>':'<div class="avatar'+(cls?" "+cls:"")+'">'+PERSON+'</div>'}
+function avatarHtml(n,cls,photo){if(photo)return '<div class="avatar'+(cls?" "+cls:"")+' has-photo"><img src="/api/shaliach/photo/'+esc(photo)+'" alt=""></div>';var i=initialOf(n);return i?'<div class="avatar initial'+(cls?" "+cls:"")+'">'+esc(i)+'</div>':'<div class="avatar'+(cls?" "+cls:"")+'">'+PERSON+'</div>'}
 function speaksYou(langs){return !!(langs&&(langs.indexOf(LANG)>=0||(LANG==="yi"&&langs.indexOf("yi")>=0)))}
 function speaksLine(langs){if(!langs||!langs.length)return"";if(speaksYou(langs))return'<span class="speaks yes">'+esc(t("speaks_yours"))+'</span>';
   return'<span class="speaks">'+esc(t("speaks",{langs:langs.map(langName).join(", ")}))+'</span>'}
@@ -201,7 +201,7 @@ function renderRoute(j){
   var s=j.shaliach;if(!s)return;var first=cur!=="s-route";
   if(first&&chatOpen())return; // the chat is on top; the route screen refreshes when it closes
   if(first||U.relang){U.relang=false;if(first){show("s-route");U.fitted=false}
-    $("vcard").innerHTML=avatarHtml(s.name)+'<div class="vc-main"><b>'+esc(s.name)+'</b><div class="vc-sub" dir="ltr">'+esc(dispPhone(s.phone))+'</div><span class="vc-tag">'+esc(t(s.transport))+' · '+esc(s.done_count?t("n_done",{n:s.done_count}):t("shaliach_word"))+'</span>'+speaksLine(s.langs)+'</div>';
+    $("vcard").innerHTML=avatarHtml(s.name,null,s.photo)+'<div class="vc-main"><b>'+esc(s.name)+'</b><div class="vc-sub" dir="ltr">'+esc(dispPhone(s.phone))+'</div><span class="vc-tag">'+esc(t(s.transport))+' · '+esc(s.done_count?t("n_done",{n:s.done_count}):t("shaliach_word"))+'</span>'+speaksLine(s.langs)+'</div>';
     $("callSh").href=telHref(s.phone);$("waSh").href=waHref(s.phone,t("wa_req_text"));}
   $("etaLabel").textContent=t("name_on_way",{name:firstOf(s)});
   $("etaText").textContent=s.eta_min!=null?t("arrives_in",{n:s.eta_min}):t("waiting_sh_loc");
@@ -257,6 +257,16 @@ function renderLangChecks(have){var box=$("regLangs");box.innerHTML="";
 function checkedLangs(){return Array.prototype.map.call(document.querySelectorAll("#regLangs input:checked"),function(x){return x.value})}
 $("regCancel").onclick=function(){renderDash()};
 $("editMe").onclick=function(){openReg(true)};
+function vPhotoPicked(file){
+  if(!file)return;
+  if(!/^image\//.test(file.type||"image/")){toast(t("ph_err_type"));return}
+  phLoadImg(file).then(function(x){return phCompress(x.img).then(function(r){URL.revokeObjectURL(x.url);return r})}).then(function(r){
+    if(!r.blob)throw new Error("enc");
+    return fetch("/api/shaliach/photo",{method:"POST",headers:{"content-type":"image/jpeg","x-token":V.me.token},body:r.blob,cache:"no-store"}).then(function(resp){return resp.json().catch(function(){return{ok:false}})})
+  }).then(function(j){if(j&&j.ok){toast(t("sh_photo_saved"));vPoll().then(renderDash)}else toast(t("ph_err_send"),3500)}).catch(function(){toast(t("ph_err_send"),3500)})
+}
+if($("vPhotoBtn")){$("vPhotoBtn").onclick=function(){$("vPhotoFile").click()};
+  $("vPhotoFile").onchange=function(){vPhotoPicked(this.files&&this.files[0]);this.value=""}}
 $("regForm").onsubmit=function(e){e.preventDefault();$("regErr").textContent="";
   var tr=document.querySelector("input[name=tr]:checked");
   var body={name:$("regName").value,phone:$("regPhone").value,city:$("regCity").value,transport:tr?tr.value:null,has_tefillin:V.editing?true:$("regTef").checked,langs:checkedLangs(),lang:LANG,tz:devTz()};
@@ -283,7 +293,7 @@ $("deleteMeBtn").onclick=function(){if(!confirm(t("confirm_delete_me")))return;v
 function renderDash(){
   if(V.job){showJob();return}
   var wasDash=cur==="s-vdash";show("s-vdash");if(!wasDash)V.fittedDash=false;var m=(V.data&&V.data.me)||{};
-  $("vName").textContent=m.name||V.me.name||"";(function(){var i=initialOf(m.name||V.me.name),av=$("vAvatar");if(i){av.className="avatar initial";av.textContent=i}})();$("vLangs").textContent=m.langs&&m.langs.length?"🌐 "+m.langs.map(langName).join(" · "):"";
+  $("vName").textContent=m.name||V.me.name||"";(function(){var av=$("vAvatar");if(m.photo){av.className="avatar has-photo";av.innerHTML='<img src="/api/shaliach/photo/'+esc(m.photo)+'?v='+m.photo+'" alt="">'}else{var i=initialOf(m.name||V.me.name);if(i){av.className="avatar initial";av.textContent=i}}})();var pb=$("vPhotoBtn");if(pb)pb.textContent=t(m.photo?"sh_photo_change":"sh_photo_add");$("vLangs").textContent=m.langs&&m.langs.length?"🌐 "+m.langs.map(langName).join(" · "):"";
   $("monthCount").textContent=m.month_count||0;$("totalCount").textContent=m.done_count||0;
   renderModeUI(m);
   var on=V.mode!=="off";

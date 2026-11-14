@@ -147,7 +147,7 @@ function shMonth(sh) { return monthCountFor(sh.id); }
 /* shaliach public cards */
 function nearbyCard(sh, pos) {
   const k = km(pos, [sh.lat, sh.lng]);
-  return { name: sh.name, lat: sh.lat, lng: sh.lng, km: Math.round(k * 100) / 100, eta_min: etaMin(k, sh.transport), transport: sh.transport, langs: sh.langs || [] };
+  return { name: sh.name, lat: sh.lat, lng: sh.lng, km: Math.round(k * 100) / 100, eta_min: etaMin(k, sh.transport), transport: sh.transport, langs: sh.langs || [], photo: sh.photo || null };
 }
 function shaliachFresh(sh) {
   return sh.lat != null && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
@@ -204,7 +204,7 @@ function reqViewForRequester(r) {
       km: k == null ? null : Math.round(k * 100) / 100,
       eta_min: k == null ? null : etaMin(k, sh.transport),
       loc_age_s: sh.loc_at ? Math.round((now() - sh.loc_at) / 1000) : null,
-      transport: sh.transport, done_count: sh.done_count || 0, langs: sh.langs || []
+      transport: sh.transport, done_count: sh.done_count || 0, langs: sh.langs || [], photo: sh.photo || null
     };
   }
   return out;
@@ -223,7 +223,7 @@ function meView(sh) {
     name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [],
     mode: sh.mode, hours: sh.hours || { on: false, days: [null, null, null, null, null, null, null] }, tz: sh.tz || "Asia/Jerusalem",
     alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined,
-    push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh)
+    push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
   };
 }
 
@@ -458,15 +458,42 @@ async function api(req, res, pathname, query) {
         transport: b.transport, has_tefillin: true, langs: Array.isArray(b.langs) && b.langs.length ? b.langs.slice(0, 8) : [String(b.lang || "he")],
         lang: String(b.lang || "he"), tz: String(b.tz || "Asia/Jerusalem"),
         mode: "off", hours: { on: false, days: [null, null, null, null, null, null, null] },
-        lat: null, lng: null, loc_at: 0, created_at: now(), done_count: 0, push: []
+        lat: null, lng: null, loc_at: 0, created_at: now(), done_count: 0, photo: null, push: []
       };
       db.shluchim[sh.id] = sh; store.save();
       return json(res, 200, { ok: true, token: sh.token, shaliach: { name: sh.name, phone: sh.phone, city: sh.city, transport: sh.transport, langs: sh.langs } });
     }
 
+    /* GET /api/shaliach/photo/:photoId — public shaliach photo */
+    if (sub === "photo" && seg[3] && req.method === "GET") {
+      const owner = Object.values(db.shluchim).find(function (s) { return s.photo === seg[3]; });
+      const f = owner ? path.join(store.photoDir, "sh-" + owner.photo + ".jpg") : null;
+      if (!f || !fs.existsSync(f)) return fail(res, "not_found", 404);
+      res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=300" });
+      return fs.createReadStream(f).pipe(res);
+    }
+
     // everything below needs a registered shaliach token
     const sh = findShByToken(token(req));
     if (!sh) return fail(res, "auth", 401);
+
+    /* POST /api/shaliach/photo — the shaliach sets/replaces his own photo (jpeg body)
+       DELETE /api/shaliach/photo — removes it */
+    if (sub === "photo" && req.method === "POST") {
+      if (String(req.headers["content-type"] || "").indexOf("image/jpeg") !== 0) return fail(res, "photo_type");
+      const body = await readBody(req, PHOTO_MAX_BYTES + 1, true);
+      if (body.length > PHOTO_MAX_BYTES) return fail(res, "photo_big");
+      if (body.length < 100 || body[0] !== 0xff || body[1] !== 0xd8) return fail(res, "photo_type");
+      if (sh.photo) { try { fs.unlinkSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg")); } catch (e) {} }
+      sh.photo = rid(12);
+      fs.writeFileSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg"), body);
+      store.save();
+      return json(res, 200, { ok: true, photo: sh.photo });
+    }
+    if (sub === "photo" && req.method === "DELETE") {
+      if (sh.photo) { try { fs.unlinkSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg")); } catch (e) {} sh.photo = null; store.save(); }
+      return json(res, 200, { ok: true });
+    }
 
     if (sub === "update" && req.method === "POST") {
       const b = await readBody(req);

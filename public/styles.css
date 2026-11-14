@@ -99,7 +99,9 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .vol-list li{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid var(--line);border-radius:16px;background:#fff}
 .vol-list li:first-child:not(.empty){border-color:var(--ink)}
 .vol-list li.empty{font-size:13.5px;color:var(--muted);border:0;padding:0 2px 2px;background:none}
-.avatar{flex:none;width:44px;height:44px;border-radius:50%;background:var(--ink);display:grid;place-items:center;position:relative;color:#fff;font-weight:800;font-size:18px}
+.avatar{flex:none;width:44px;height:44px;border-radius:50%;background:var(--ink);display:grid;place-items:center;position:relative;color:#fff;font-weight:800;font-size:18px;overflow:hidden}
+.avatar.has-photo{display:block}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .avatar svg{width:26px;height:26px;fill:#fff}
 .avatar.initial{background:var(--acc);color:var(--ink)}
 .vl-main{flex:1;min-width:0}
