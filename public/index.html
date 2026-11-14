@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<script>/* carries saved app state over from the old address (tefillin-now) once */(function(){var h=location.hash;if(h.indexOf("#tnmig=")!==0)return;try{if(/^https:\/\/tefillin-now\.sites\.tab\.bot\//.test(document.referrer)||document.referrer===""){var d=JSON.parse(decodeURIComponent(h.slice(7)));for(var k in d){if(k.indexOf("tn_")===0&&typeof d[k]==="string"&&localStorage.getItem(k)==null)localStorage.setItem(k,d[k])}}}catch(e){}try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Get Tefillin · הנחת תפילין – שליח עם תפילין מגיע אליך תוך דקות</title>
+<meta name="description" content="Get Tefillin – רוצה להניח תפילין? כמו להזמין מונית, רק עם תפילין: שליח עם זוג תפילין כשרות מגיע אליך תוך דקות, בחינם. Put on tefillin near you.">
+<meta property="og:title" content="Get Tefillin">
+<meta property="og:description" content="שליח עם זוג תפילין מגיע אליך תוך דקות. מזמינים, רואים אותו מתקרב על המפה, מניחים.">
+<meta property="og:image" content="https://get-tefillin.sites.tab.bot/og.png">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://get-tefillin.sites.tab.bot/">
+<link rel="alternate" hreflang="he" href="https://get-tefillin.sites.tab.bot/he/">
+<link rel="alternate" hreflang="en" href="https://get-tefillin.sites.tab.bot/en/">
+<link rel="alternate" hreflang="fr" href="https://get-tefillin.sites.tab.bot/fr/">
+<link rel="alternate" hreflang="ru" href="https://get-tefillin.sites.tab.bot/ru/">
+<link rel="alternate" hreflang="es" href="https://get-tefillin.sites.tab.bot/es/">
+<link rel="alternate" hreflang="pt" href="https://get-tefillin.sites.tab.bot/pt/">
+<link rel="alternate" hreflang="it" href="https://get-tefillin.sites.tab.bot/it/">
+<link rel="alternate" hreflang="yi" href="https://get-tefillin.sites.tab.bot/yi/">
+<link rel="alternate" hreflang="x-default" href="https://get-tefillin.sites.tab.bot/">
+<meta name="robots" content="index,follow">
+<meta property="og:url" content="https://get-tefillin.sites.tab.bot/">
+<meta property="og:site_name" content="Get Tefillin">
+<meta property="og:locale" content="he_IL">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Get Tefillin · הנחת תפילין – שליח עם תפילין מגיע אליך">
+<meta name="twitter:description" content="שליח עם זוג תפילין מגיע אליך תוך דקות. מזמינים, רואים אותו מתקרב על המפה, מניחים. בחינם.">
+<meta name="twitter:image" content="https://get-tefillin.sites.tab.bot/og.png">
+<meta name="application-name" content="Get Tefillin">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "@id": "https://get-tefillin.sites.tab.bot/#app", "name": "Get Tefillin", "alternateName": ["גט תפילין", "Get Tefilin", "GetTefillin"], "url": "https://get-tefillin.sites.tab.bot/", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any (web, Android, iOS)", "inLanguage": ["he", "en", "fr", "ru", "es", "pt", "it", "yi"], "description": "Get Tefillin connects anyone who wants to put on tefillin with a nearby volunteer who brings a kosher pair, within minutes. Free; donations welcome.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://get-tefillin.sites.tab.bot/og.png", "publisher": {"@id": "https://get-tefillin.sites.tab.bot/#org"}}, {"@type": "Organization", "@id": "https://get-tefillin.sites.tab.bot/#org", "name": "Get Tefillin", "url": "https://get-tefillin.sites.tab.bot/", "logo": "https://get-tefillin.sites.tab.bot/icons/icon-512.png"}]}</script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Get Tefillin">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="styles.css?v=11">
+</head>
+<body>
+<div class="app" id="app">
+  <div id="map" class="map" aria-label="map"></div>
+
+  <header class="topbar" id="topbar" hidden>
+    <button class="fab" id="menuBtn" type="button" data-i18n-aria="menu" aria-label="תפריט" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-menu"/></svg></button>
+    <div class="modeswitch" role="tablist">
+      <button role="tab" id="tabUser" class="on" aria-selected="true" data-i18n="tab_user">מניח</button>
+      <button role="tab" id="tabVol" aria-selected="false" data-i18n="tab_vol">אני שליח</button>
+    </div>
+  </header>
+  <button class="fab locate-fab" id="locateBtn" type="button" hidden data-i18n-aria="recenter" aria-label="המיקום שלי"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-locate"/></svg></button>
+
+  <!-- intro / about -->
+<section class="screen intro" id="s-intro" hidden>
+    <div class="intro-inner">
+      <div class="lang-row" id="introLangs" role="group" aria-label="Language"></div>
+      <img class="intro-logo" src="icon.svg" alt="" width="84" height="84">
+      <h1 data-i18n="app_name">Get Tefillin</h1>
+      <p class="lead"><span data-i18n="lead1">כמו להזמין מונית, רק עם תפילין.</span><br><span data-i18n="lead2">שליח עם זוג תפילין מגיע אליך תוך דקות.</span></p>
+      <ol class="steps">
+        <li><span>1</span><i data-i18n="step1">לוחצים "הזמן תפילין"</i></li>
+        <li><span>2</span><i data-i18n="step2">רואים את השליח מתקרב על המפה</i></li>
+        <li><span>3</span><i data-i18n="step3">מניחים תפילין, ובמקום לשלם תורמים אם רוצים</i></li>
+      </ol>
+      <button class="btn primary big" id="startBtn" data-i18n="start">בוא נתחיל</button>
+      <button class="link light" id="introVol" data-i18n="intro_vol">יש לי תפילין ואני רוצה להיות שליח ←</button>
+      <button class="install-btn" id="installIntro" hidden data-i18n="install">📲 התקן כאפליקציה</button>
+      <p class="demo-note"><span data-i18n="beta">גרסת ניסיון</span> · <a class="tz-link" href="#" target="_blank" rel="noopener" data-i18n="give_tzedakah">💝 לתרומה / צדקה</a> · <a href="/privacy" data-i18n="privacy_link">מדיניות פרטיות</a><br><a class="wall-link" href="/wall" data-i18n="wall_link">🖼️ קיר התפילין</a></p>
+      <p class="demo-note seo-langs"><a href="/he/" hreflang="he">עברית</a> · <a href="/en/" hreflang="en">English</a> · <a href="/fr/" hreflang="fr">Français</a> · <a href="/ru/" hreflang="ru">Русский</a> · <a href="/es/" hreflang="es">Español</a> · <a href="/pt/" hreflang="pt">Português</a> · <a href="/it/" hreflang="it">Italiano</a> · <a href="/yi/" hreflang="yi">ייִדיש</a></p>
+    </div>
+  </section>
+
+  <!-- home (requester) -->
+  <section class="sheet" id="s-home" hidden>
+    <div class="grab" role="button" tabindex="0" data-i18n-aria="sheet_toggle" aria-label="sheet"></div>
+    <button class="install-chip" id="installHome" hidden data-i18n="install_home">📲 התקן כאפליקציה במסך הבית</button>
+    <h2 class="hello-h" id="helloH" data-i18n="home_title">רוצה להניח תפילין?</h2>
+    <div class="loc"><span class="pickdot" aria-hidden="true"></span><div class="loc-txt"><small data-i18n="your_loc">המיקום שלך</small><b id="locText" data-i18n="locating">מאתר מיקום…</b></div><button class="mini" id="changeLoc" type="button" data-i18n="change">שינוי</button></div>
+    <div class="avail">
+      <p class="avail-t" id="availTitle" data-i18n="searching_nearby">מחפשים שליחים לידך…</p>
+      <ul class="vol-list" id="volList"></ul>
+    </div>
+    <form id="orderForm" class="payform tight" novalidate>
+      <div class="who" id="whoRow" hidden><span class="who-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-person"/></svg></span><span class="who-t"><small data-i18n="ordering_as">מזמין בשם</small><b id="whoText"></b></span><button type="button" class="mini" id="whoEdit" data-i18n="change">שינוי</button></div>
+      <div class="row2" id="whoFields">
+        <label><span data-i18n="first_name">שם פרטי</span><input id="reqName" autocomplete="given-name" maxlength="30" data-i18n-ph="ph_first" placeholder="דוד"></label>
+        <label><span data-i18n="phone">טלפון</span><input id="reqPhone" dir="ltr" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="050-0000000"></label>
+      </div>
+      <p class="form-err" id="orderErr" role="alert"></p>
+      <button class="btn primary big cta" type="submit" id="orderBtn" data-i18n="order">הזמן תפילין</button>
+    </form>
+    <a class="wallcar" id="wallCar" href="/wall" hidden data-i18n-aria="wall_title" aria-label="קיר התפילין">
+      <div class="wc-track" id="wcTrack"></div>
+      <div class="wc-over"><span class="wc-t"><b data-i18n="wall_title">קיר התפילין</b><small id="wcSub"></small></span><span class="wc-go"><span data-i18n="wall_see_all">לכל התמונות</span> <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chev"/></svg></span></div>
+      <div class="wc-dots" id="wcDots" aria-hidden="true"></div>
+    </a>
+    <p class="fine"><span id="totalLine"></span><span data-i18n="privacy_line">הטלפון שלך עובר רק לשליח שמקבל את הקריאה.</span></p>
+    <div class="mini-links"><a class="tz-link tz-home" id="tzHome" href="#" target="_blank" rel="noopener" data-i18n="give_tzedakah">💝 לתרומה / צדקה</a></div>
+  </section>
+
+<section class="sheet" id="s-locpick" hidden>
+    <h2 class="sheet-title" data-i18n="where">איפה אתה נמצא?</h2>
+    <p class="muted small" id="locPickNote" data-i18n="locpick_note">חפש כתובת, או גע במפה כדי לסמן את המקום.</p>
+    <form id="addrForm" class="search" novalidate>
+      <input id="addrInput" data-i18n-ph="addr_ph" placeholder="רחוב ומספר, עיר" autocomplete="street-address">
+      <button class="btn dark" type="submit" data-i18n="search">חפש</button>
+    </form>
+    <ul class="results" id="addrResults"></ul>
+    <div class="row2 gap">
+      <button class="btn ghost" id="useGps" data-i18n="my_location">📍 המיקום שלי</button>
+      <button class="btn primary" id="confirmLoc" disabled data-i18n="confirm_loc">אשר מיקום</button>
+    </div>
+  </section>
+
+  <!-- matching / searching -->
+  <section class="sheet" id="s-match" hidden>
+    <ol class="stepper" data-step="1"><li data-i18n="step_search">חיפוש</li><li data-i18n="step_way">בדרך</li><li data-i18n="step_here">הגיע</li><li data-i18n="step_done">הונח</li></ol>
+    <div class="search-head"><div class="spinner" aria-hidden="true"><img src="icon.svg" alt="" width="34" height="34"></div>
+      <div><h2 data-i18n="finding">מחפשים שליח קרוב…</h2><p class="muted" id="matchMsg" data-i18n="sending_req">שולחים את הבקשה לשליחים באזור</p></div></div>
+    <div class="timer"><div id="matchTimer"></div></div>
+    <button class="btn soft big" id="cancelMatch" type="button" data-i18n="cancel">ביטול</button>
+  </section>
+
+  <!-- nobody answered -->
+  <section class="sheet" id="s-none" hidden>
+    <div class="state-head"><div class="state-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-clock"/></svg></div>
+      <div><h2 data-i18n="none_title">אין כרגע שליח זמין</h2><p class="muted" data-i18n="none_text">אפשר לנסות שוב, או להשאיר את הבקשה פתוחה. שליח שיתפנה יראה אותה ויוכל להתקשר אליך.</p></div></div>
+    <div class="stack">
+      <button class="btn primary big" id="retryBtn" type="button" data-i18n="retry">נסה שוב</button>
+      <button class="btn dark big" id="waitBtn" type="button" data-i18n="wait">השאר פרטים</button>
+      <button class="link" id="cancelNone" type="button" data-i18n="cancel_req">ביטול הבקשה</button>
+    </div>
+  </section>
+
+  <!-- waiting (left details) -->
+  <section class="sheet" id="s-waiting" hidden>
+    <div class="state-head"><div class="state-ico" aria-hidden="true">📨</div>
+      <div><h2 data-i18n="waiting_title">הבקשה שלך פתוחה</h2><p class="muted" data-i18n="waiting_text">שליחים באזור רואים אותה.</p></div></div>
+    <button class="btn primary big" id="retryBtn2" type="button" data-i18n="resend">שלח שוב לשליחים</button>
+    <button class="link" id="cancelWait" type="button" data-i18n="cancel_req">ביטול הבקשה</button>
+  </section>
+
+  <!-- assigned / en route -->
+  <section class="sheet" id="s-route" hidden>
+    <div class="grab" role="button" tabindex="0" data-i18n-aria="sheet_toggle" aria-label="sheet"></div>
+    <ol class="stepper" data-step="2"><li data-i18n="step_search">חיפוש</li><li data-i18n="step_way">בדרך</li><li data-i18n="step_here">הגיע</li><li data-i18n="step_done">הונח</li></ol>
+    <div class="eta-row">
+      <div>
+        <small class="muted" id="etaLabel" data-i18n="on_way">השליח בדרך</small>
+        <div class="eta" id="etaText" data-i18n="calc_eta">מחשב זמן הגעה…</div>
+      </div>
+      <div class="eta-dist" id="etaDist"></div>
+    </div>
+    <p class="fine left" id="locAge"></p>
+    <div class="vcard" id="vcard"></div>
+    <div class="actions4">
+      <a class="act" id="callSh" href="#"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-phone"/></svg></i><span data-i18n="call">התקשר</span></a>
+      <a class="act wa" id="waSh" href="#" target="_blank" rel="noopener"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-wa"/></svg></i><span data-i18n="whatsapp">וואטסאפ</span></a>
+      <button class="act chat-act" id="chatSh" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chat"/></svg></i><span data-i18n="chat">צ'אט</span><b class="badge" hidden></b></button>
+      <button class="act danger" id="cancelRide" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-x"/></svg></i><span data-i18n="cancel">ביטול</span></button>
+    </div>
+  </section>
+
+  <!-- arrived -->
+  <section class="sheet" id="s-arrived" hidden>
+    <ol class="stepper" data-step="3"><li data-i18n="step_search">חיפוש</li><li data-i18n="step_way">בדרך</li><li data-i18n="step_here">הגיע</li><li data-i18n="step_done">הונח</li></ol>
+    <div class="state-head"><div class="state-ico ok" aria-hidden="true">📍</div>
+      <div><h2 id="arrTitle" data-i18n="arrived_title">השליח הגיע!</h2><p class="muted" data-i18n="arrived_text">הוא ממתין לך עם זוג תפילין. בסיום הוא יסמן שהנחתם.</p></div></div>
+    <div class="row2 gap">
+      <a class="btn dark" id="callSh2" href="#" data-i18n="call_icon">📞 התקשר</a>
+      <button class="btn soft chat-act" id="chatSh2" type="button"><span data-i18n="chat">צ'אט</span><b class="badge" hidden></b></button>
+    </div>
+  </section>
+
+  <!-- done + donation -->
+  <section class="sheet tall" id="s-done" hidden>
+    <ol class="stepper" data-step="4"><li data-i18n="step_search">חיפוש</li><li data-i18n="step_way">בדרך</li><li data-i18n="step_here">הגיע</li><li data-i18n="step_done">הונח</li></ol>
+    <div class="done-head">
+      <div class="big-emoji">🙏</div>
+      <h2 data-i18n="done_title">יישר כח! הנחת תפילין</h2>
+      <p class="muted" data-i18n="done_sub">עוד מצווה שמוסיפה אור בעולם.</p>
+    </div>
+    <div class="phcard" id="phR" data-role="r" hidden>
+      <div class="ph-idle">
+        <p class="ph-q"><b data-i18n="ph_title">📸 רוצה לשתף תמונה בקיר התפילין?</b> <small data-i18n="optional">(לא חובה)</small></p>
+        <input type="file" accept="image/*" class="ph-file" id="phRFile" tabindex="-1" aria-hidden="true">
+        <div class="ph-row"><button type="button" class="btn outline ph-pick" data-i18n="ph_upload">📸 העלה תמונה</button><button type="button" class="btn ghost ph-skip" data-i18n="ph_skip">דלג</button></div>
+      </div>
+      <div class="ph-pre" hidden>
+        <img class="ph-img" alt="">
+        <label class="ph-consent"><input type="checkbox" class="ph-ok"><span data-i18n="ph_consent">אני מסכים שהתמונה תפורסם בקיר התפילין</span></label>
+        <p class="ph-note" data-i18n="ph_mod">התמונה תופיע רק אחרי אישור מנהל האתר.</p>
+        <div class="ph-row"><button type="button" class="btn primary ph-send" disabled data-i18n="ph_send">שלח תמונה</button><button type="button" class="btn ghost ph-cancel" data-i18n="ph_cancel">ביטול</button></div>
+      </div>
+      <p class="ph-busy" hidden><span data-i18n="ph_sending">שולח את התמונה…</span></p>
+      <p class="ph-ok-msg" hidden>✓ <span data-i18n="ph_thanks">תודה! התמונה נשלחה לאישור ותופיע בקיר אחרי שתאושר.</span></p>
+    </div>
+    <div class="donate">
+      <h3><span data-i18n="donate_h">רוצה להוסיף תרומה?</span> <small data-i18n="optional">(לא חובה)</small></h3>
+      <p class="muted small" data-i18n="donate_sub">במקום תשלום. התרומה עוזרת להביא תפילין לעוד יהודים.</p>
+      <div class="chips" id="chips">
+        <button class="chip" type="button" data-amt="18">₪18</button>
+        <button class="chip on" type="button" data-amt="36">₪36</button>
+        <button class="chip" type="button" data-amt="100">₪100</button>
+        <button class="chip" type="button" data-amt="180">₪180</button>
+      </div>
+      <a class="btn primary big" id="donateBtn" href="#" target="_blank" rel="noopener">לתרומה מאובטחת ←</a>
+      <p class="fine" data-i18n="donate_fine">הסכומים הם הצעה בלבד. התרומה מתבצעת בדף התרומות של חב"ד, ולא כאן.</p>
+      <button class="link" id="homeBtn" type="button" data-i18n="back_home">חזרה למסך הבית</button>
+      <a class="link wall-go" href="/wall" data-i18n="wall_see">🖼️ לקיר התפילין</a>
+    </div>
+  </section>
+
+<section class="sheet tall" id="s-vreg" hidden>
+    <h2 class="sheet-title" id="regTitle" data-i18n="reg_title">הצטרפות כשליח תפילין</h2>
+    <p class="muted small" data-i18n="reg_sub">יש לך זוג תפילין ורבע שעה פנויה? תעזור ליהודים באזור שלך להניח.</p>
+    <form id="regForm" class="payform" novalidate>
+      <label><span data-i18n="name">שם</span><input id="regName" autocomplete="name" maxlength="40" data-i18n-ph="ph_name" placeholder="למשל: מנחם כהן"></label>
+      <label><span data-i18n="phone">טלפון</span><input id="regPhone" dir="ltr" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="050-0000000"></label>
+      <label><span data-i18n="city">עיר / שכונה</span><input id="regCity" maxlength="40" data-i18n-ph="ph_city" placeholder="גבעת שמואל"></label>
+      <fieldset class="seg"><legend data-i18n="how_come">איך תגיע?</legend>
+        <label><input type="radio" name="tr" value="foot" checked> <span data-i18n="foot">ברגל</span></label>
+        <label><input type="radio" name="tr" value="bike"> <span data-i18n="bike">אופניים</span></label>
+        <label><input type="radio" name="tr" value="car"> <span data-i18n="car">רכב</span></label>
+      </fieldset>
+      <fieldset class="langs"><legend data-i18n="langs_speak">שפות שאני מדבר</legend>
+        <div class="lang-checks" id="regLangs"></div>
+        <p class="fine" data-i18n="langs_hint"></p>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="regTef"> <span data-i18n="has_tef">יש לי זוג תפילין כשר</span></label>
+      <p class="form-err" id="regErr" role="alert"></p>
+      <button class="btn primary big" type="submit" id="regBtn" data-i18n="reg_btn">הירשם כשליח</button>
+      <p class="fine" data-i18n="reg_fine">בלי סיסמה: המכשיר הזה יזכור אותך. הטלפון שלך עובר רק למי שקריאתו התקבלה על ידך.</p>
+      <button class="link" type="button" id="regCancel" hidden data-i18n="back">→ חזרה</button>
+    </form>
+  </section>
+
+  <!-- volunteer dashboard (driver-app style) -->
+  <section class="sheet" id="s-vdash" hidden>
+    <div class="grab" role="button" tabindex="0" data-i18n-aria="sheet_toggle" aria-label="sheet"></div>
+    <div class="vhello"><div class="avatar" id="vAvatar"><svg viewBox="0 0 24 24"><use href="#ico-person"/></svg></div><div class="vh-main"><small class="muted" data-i18n="hello">שלום,</small><b id="vName"></b><span class="vh-langs" id="vLangs"></span></div><button class="mini" id="editMe" type="button" data-i18n="edit">עריכה</button></div>
+    <div class="status-card" id="statusCard" data-mode="off">
+      <div class="sc-head"><span class="sc-dot" aria-hidden="true"></span><b id="scTitle"></b></div>
+      <div class="modeseg" id="modeSeg" role="radiogroup" data-i18n-aria="mode_label" aria-label="המצב שלי">
+        <button type="button" role="radio" data-mode="off" aria-checked="true"><i class="dot"></i><span data-i18n="mode_off">לא זמין</span></button>
+        <button type="button" role="radio" data-mode="standby" aria-checked="false"><i class="dot"></i><span data-i18n="mode_standby">כונן</span></button>
+        <button type="button" role="radio" data-mode="available" aria-checked="false"><i class="dot"></i><span data-i18n="mode_avail">זמין</span></button>
+      </div>
+      <p class="mode-desc" id="modeDesc"></p>
+    </div>
+    <p class="alert-line" id="alertLine" hidden></p>
+    <div class="push-ask" id="pushAsk" hidden>
+      <b data-i18n="push_ask_title">לקבל התראות על קריאות?</b>
+      <p data-i18n="push_ask_text"></p>
+      <div class="row2"><button type="button" class="btn soft sm" id="pushNo" data-i18n="push_ask_no">לא עכשיו</button><button type="button" class="btn primary sm" id="pushYes" data-i18n="push_ask_yes">אפשר התראות</button></div>
+    </div>
+    <p class="ios-hint" id="iosHint" hidden data-i18n="push_ios_hint"></p>
+    <button class="install-chip" id="installVol" hidden data-i18n="install_vol">📲 התקן כאפליקציה: נפתח מהר יותר כשצריך</button>
+    <p class="keep-open" id="keepOpen" data-i18n="keep_open">📱 השאר את המסך פתוח כדי לקבל קריאות</p>
+    <div class="stats">
+      <div class="stat main"><b id="monthCount">0</b><span data-i18n="month">הנחות תפילין החודש</span></div>
+      <div class="stat"><b id="totalCount">0</b><span data-i18n="total">סה"כ</span></div>
+    </div>
+    <button type="button" class="hours-row" id="hoursBtn"><span class="hr-ico">⏰</span><span class="hr-main"><b data-i18n="hours_title">שעות פעילות</b><span id="hoursSum"></span></span><span class="hr-go">‹</span></button>
+    <p class="fine center-t" id="gpsLine"></p>
+    <button type="button" class="link small" id="pushTest" hidden data-i18n="push_test">שלח לי התראת בדיקה</button>
+    <div id="waitWrap" hidden>
+      <h3 class="list-h" data-i18n="open_calls">קריאות פתוחות באזור</h3>
+      <ul class="vol-list" id="waitList"></ul>
+    </div>
+    <p class="muted small center-t" id="waitTxt" hidden data-i18n="waiting_call">ממתין לקריאה באזור שלך…</p>
+    <button class="link" id="logoutBtn" type="button" data-i18n="logout">התנתק מהמכשיר הזה</button>
+    <button class="link small danger-link" id="deleteMeBtn" type="button" data-i18n="delete_me">מחיקת ההרשמה שלי</button>
+  </section>
+
+<section class="sheet tall" id="s-vhours" hidden>
+    <h2 class="sheet-title" data-i18n="hours_title">שעות פעילות</h2>
+    <p class="muted small" data-i18n="hours_sub"></p>
+    <div class="hours-mode">
+      <label><input type="radio" name="hmode" value="always"> <span data-i18n="hours_mode_always">כל שעות היממה</span></label>
+      <label><input type="radio" name="hmode" value="custom"> <span data-i18n="hours_mode_custom">רק בשעות שאבחר</span></label>
+    </div>
+    <div class="hours-days" id="hoursDays"></div>
+    <p class="hours-note" data-i18n="hours_shabbat_note"></p>
+    <p class="fine" id="hoursTz"></p>
+    <p class="form-err" id="hoursErr" role="alert"></p>
+    <button class="btn primary" type="button" id="hoursSave" data-i18n="save">שמור</button>
+    <button class="link" type="button" id="hoursBack" data-i18n="back">→ חזרה</button>
+  </section>
+
+  <!-- volunteer incoming (driver-app request card) -->
+  <section class="sheet" id="s-vreq" hidden>
+    <div class="req-head"><span class="pulse-dot"></span> <span data-i18n="new_call">קריאה חדשה לידך</span></div>
+    <div class="req">
+      <div class="avatar big-av" id="rqAvatar"><svg viewBox="0 0 24 24"><use href="#ico-person"/></svg></div>
+      <div class="req-info"><b id="rqName"></b><span data-i18n="wants_tef">רוצה להניח תפילין</span><span class="rq-lang" id="rqLang"></span></div>
+      <div class="req-dist"><b id="rqDist"></b><span id="rqEta"></span></div>
+    </div>
+    <div class="timer"><div id="reqTimer"></div></div>
+    <button class="btn accept big" id="acceptReq" type="button" data-i18n="accept">קבל קריאה</button>
+    <button class="btn soft big" id="declineReq" type="button" data-i18n="not_now">לא עכשיו</button>
+  </section>
+
+  <!-- volunteer en route -->
+  <section class="sheet" id="s-vgo" hidden>
+    <div class="eta-row">
+      <div><small class="muted" id="vGoLabel">בדרך אל</small><div class="eta" id="vEta"></div></div>
+      <div class="eta-dist" id="vDist"></div>
+    </div>
+    <p class="fine left" id="vReqLang"></p>
+    <div class="nav2">
+      <a class="btn dark" id="wazeBtn" href="#" target="_blank" rel="noopener"><svg class="bi" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-nav"/></svg> <span data-i18n="waze">נווט ב-Waze</span></a>
+      <a class="btn soft" id="gmapsBtn" href="#" target="_blank" rel="noopener">Google Maps</a>
+    </div>
+    <div class="actions3">
+      <a class="act" id="callRq" href="#"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-phone"/></svg></i><span data-i18n="call">התקשר</span></a>
+      <a class="act wa" id="waRq" href="#" target="_blank" rel="noopener"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-wa"/></svg></i><span data-i18n="whatsapp">וואטסאפ</span></a>
+      <button class="act chat-act" id="chatRq" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chat"/></svg></i><span data-i18n="chat">צ'אט</span><b class="badge" hidden></b></button>
+    </div>
+    <button class="btn primary big" id="vArrived" type="button" data-i18n="arrived_btn">הגעתי</button>
+    <button class="link" id="vRelease" type="button" data-i18n="release">לא אוכל להגיע · החזר את הקריאה</button>
+  </section>
+
+  <!-- volunteer at location -->
+  <section class="sheet" id="s-vdone" hidden>
+    <div class="state-head"><div class="state-ico ok" aria-hidden="true">🤝</div>
+      <div><h2 id="vAtTitle" data-i18n="you_arrived">הגעת</h2><p class="muted" data-i18n="mark_done_hint">כשסיימתם להניח, סמן כאן.</p></div></div>
+    <button class="btn accept big" id="vFinish" type="button" data-i18n="done_btn">הנחנו תפילין ✓</button>
+    <div class="row2 gap">
+      <a class="btn dark" id="callRq2" href="#" data-i18n="call_icon">📞 התקשר</a>
+      <button class="btn soft chat-act" id="chatRq2" type="button"><span data-i18n="chat">צ'אט</span><b class="badge" hidden></b></button>
+    </div>
+  </section>
+
+  <!-- volunteer thanks -->
+  <section class="sheet tall center" id="s-vthanks" hidden>
+    <div class="big-emoji">✨</div>
+    <h2 data-i18n="thanks">יישר כח!</h2>
+    <p class="muted" id="vThanksTxt"></p>
+    <div class="phcard" id="phS" data-role="s" hidden>
+      <div class="ph-idle">
+        <p class="ph-q"><b data-i18n="ph_title">📸 רוצה לשתף תמונה בקיר התפילין?</b> <small data-i18n="optional">(לא חובה)</small></p>
+        <input type="file" accept="image/*" class="ph-file" id="phSFile" tabindex="-1" aria-hidden="true">
+        <div class="ph-row"><button type="button" class="btn outline ph-pick" data-i18n="ph_upload">📸 העלה תמונה</button><button type="button" class="btn ghost ph-skip" data-i18n="ph_skip">דלג</button></div>
+      </div>
+      <div class="ph-pre" hidden>
+        <img class="ph-img" alt="">
+        <label class="ph-consent"><input type="checkbox" class="ph-ok"><span data-i18n="ph_consent">אני מסכים שהתמונה תפורסם בקיר התפילין</span></label>
+        <p class="ph-note" data-i18n="ph_mod">התמונה תופיע רק אחרי אישור מנהל האתר.</p>
+        <div class="ph-row"><button type="button" class="btn primary ph-send" disabled data-i18n="ph_send">שלח תמונה</button><button type="button" class="btn ghost ph-cancel" data-i18n="ph_cancel">ביטול</button></div>
+      </div>
+      <p class="ph-busy" hidden><span data-i18n="ph_sending">שולח את התמונה…</span></p>
+      <p class="ph-ok-msg" hidden>✓ <span data-i18n="ph_thanks">תודה! התמונה נשלחה לאישור ותופיע בקיר אחרי שתאושר.</span></p>
+    </div>
+    <button class="btn dark big" id="vBack" type="button" data-i18n="back_dash">חזרה ללוח השליח</button>
+    <a class="link wall-go" href="/wall" data-i18n="wall_see">🖼️ לקיר התפילין</a>
+  </section>
+
+<section class="chat" id="chat" hidden aria-modal="true" role="dialog">
+    <header class="chat-h">
+      <button class="chat-x" id="chatClose" data-i18n-aria="close" aria-label="close"><svg viewBox="0 0 24 24"><use href="#ico-x"/></svg></button>
+      <div class="chat-ht"><b id="chatTitle"></b><small data-i18n="chat_auto">🌐 מתורגם אוטומטית לשפה שלך</small></div>
+      <a class="chat-call" id="chatCall" href="#"><svg viewBox="0 0 24 24"><use href="#ico-phone"/></svg></a>
+    </header>
+    <div class="chat-body" id="chatBody"><p class="chat-empty" id="chatEmpty"></p></div>
+    <div class="quick" id="quick"></div>
+    <form class="chat-in" id="chatForm" novalidate>
+      <textarea id="chatText" rows="1" maxlength="500" data-i18n-ph="chat_ph" placeholder="כתוב הודעה…"></textarea>
+      <button class="chat-send" type="submit" id="chatSend" data-i18n-aria="send" aria-label="send"><svg viewBox="0 0 24 24"><use href="#ico-send"/></svg></button>
+    </form>
+  </section>
+
+  <!-- side menu -->
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" data-i18n-aria="menu" aria-label="תפריט">
+    <div class="dr-head">
+      <button class="brand" id="brandBtn" type="button"><img src="icon.svg" alt="" width="40" height="40"><span class="brand-t"><b data-i18n="app_name">Get Tefillin</b><em class="beta" data-i18n="beta">גרסת ניסיון</em></span></button>
+      <button class="dr-x" id="drawerClose" type="button" data-i18n-aria="close" aria-label="close"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-x"/></svg></button>
+    </div>
+    <nav class="dr-nav">
+      <button type="button" class="dr-item" id="mOrder"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-car"/></svg><span data-i18n="menu_order">הזמנת תפילין</span></button>
+      <button type="button" class="dr-item" id="mVol"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-shield"/></svg><span data-i18n="menu_vol">מצב שליח</span></button>
+      <button type="button" class="dr-item" id="mHist"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-clock"/></svg><span data-i18n="my_requests">הבקשות שלי</span></button>
+      <a class="dr-item" id="mWall" href="/wall"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-photo"/></svg><span data-i18n="wall_title">קיר התפילין</span></a>
+      <a class="dr-item tz-link" id="mDonate" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-heart"/></svg><span data-i18n="menu_donate">תרומה / צדקה</span></a>
+      <button type="button" class="dr-item" id="langBtn" aria-label="Language"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-globe"/></svg><span data-i18n="language">שפה</span><em class="dr-tag" id="langCode">HE</em></button>
+      <button type="button" class="dr-item" id="mInstall" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-install"/></svg><span data-i18n="install">📲 התקן כאפליקציה</span></button>
+      <button type="button" class="dr-item" id="mAbout"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"/></svg><span data-i18n="about">אודות</span></button>
+    </nav>
+    <div class="dr-foot">
+      <a href="/privacy" data-i18n="privacy_link">מדיניות פרטיות</a>
+      <a href="/delete-account" data-i18n="delete_data">מחיקת נתונים</a>
+      <button type="button" class="adm-link" id="admLink" data-i18n="admin_entry">כניסת ניהול</button>
+    </div>
+  </aside>
+
+  <!-- my requests (on this device) -->
+  <div class="modal" id="histModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <h3 data-i18n="my_requests">הבקשות שלי</h3>
+      <ul class="hist" id="histList"></ul>
+      <p class="fine" data-i18n="hist_note">נשמר רק במכשיר הזה.</p>
+      <button class="link" id="histClose" type="button" data-i18n="close">סגור</button>
+    </div>
+  </div>
+
+  <!-- admin code -->
+  <div class="modal" id="admModal" hidden>
+    <form class="modal-card adm-card" id="admForm" role="dialog" aria-modal="true" novalidate>
+      <div class="adm-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-shield"/></svg></div>
+      <h3 data-i18n="admin_entry">כניסת ניהול</h3>
+      <label class="adm-l"><span data-i18n="admin_code">קוד ניהול</span><input id="admCode" type="password" autocomplete="current-password" maxlength="100" dir="ltr" spellcheck="false" autocapitalize="off"></label>
+      <p class="form-err" id="admErr" role="alert"></p>
+      <button class="btn dark big" type="submit" id="admGo" data-i18n="admin_enter">כניסה</button>
+      <button class="link" id="admClose" type="button" data-i18n="close">סגור</button>
+    </form>
+  </div>
+
+<!-- language picker -->
+  <div class="modal" id="langModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <h3 data-i18n="choose_lang">בחר שפה</h3>
+      <div class="lang-grid" id="langGrid"></div>
+      <button class="link" id="langClose" data-i18n="close">סגור</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ico-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.6-4.6 4.1-7.4 8.5-7.4s7.9 2.8 8.5 7.4z"/></symbol>
+  <symbol id="ico-phone" viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></symbol>
+  <symbol id="ico-chat" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="ico-wa" viewBox="0 0 24 24"><path d="M12 2.2A9.7 9.7 0 0 0 3.6 16.8L2.3 21.7l5-1.3A9.7 9.7 0 1 0 12 2.2zm5.6 13.7c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1.1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.3 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.6 2.1 1.1 1 2.1 1.3 2.4 1.4.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l2 .9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></symbol>
+  <symbol id="ico-x" viewBox="0 0 24 24"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7l-1.4-1.4L9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3z"/></symbol>
+  <symbol id="ico-globe" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 6h-3a15.6 15.6 0 0 0-1.4-3.9A8 8 0 0 1 18.9 8zM12 4c.8 1.2 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.8 1.9-4zM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4H4.3zm.8 2h3a15.6 15.6 0 0 0 1.4 3.9A8 8 0 0 1 5.1 16zm3-8h-3a8 8 0 0 1 4.4-3.9C8.9 5.3 8.4 6.6 8.1 8zM12 20c-.8-1.2-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.8-1.9 4zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4zm.2 5.9c.6-1.2 1.1-2.5 1.4-3.9h3a8 8 0 0 1-4.4 3.9zm1.8-5.9a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4h-3.4z"/></symbol>
+  <symbol id="ico-send" viewBox="0 0 24 24"><path d="M3 20.5 21.5 12 3 3.5l.01 6.6L16 12 3.01 13.9z"/></symbol>
+
+  <symbol id="ico-menu" viewBox="0 0 24 24"><path d="M3 6h18v2.2H3zm0 4.9h18v2.2H3zm0 4.9h18V18H3z"/></symbol>
+  <symbol id="ico-locate" viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.9 3A9 9 0 0 0 13 3.1V1h-2v2.1A9 9 0 0 0 3.1 11H1v2h2.1a9 9 0 0 0 7.9 7.9V23h2v-2.1a9 9 0 0 0 7.9-7.9H23v-2h-2.1zM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14z"/></symbol>
+  <symbol id="ico-chev" viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></symbol>
+  <symbol id="ico-home" viewBox="0 0 24 24"><path d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/></symbol>
+  <symbol id="ico-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.8-13h-1.6v6l5.2 3.1.8-1.3-4.4-2.6z"/></symbol>
+  <symbol id="ico-photo" viewBox="0 0 24 24"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5z"/></symbol>
+  <symbol id="ico-heart" viewBox="0 0 24 24"><path d="M12 21.4 10.6 20C5.4 15.4 2 12.3 2 8.5 2 5.4 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1A6 6 0 0 1 16.5 3C19.6 3 22 5.4 22 8.5c0 3.8-3.4 6.9-8.6 11.5z"/></symbol>
+  <symbol id="ico-info" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/></symbol>
+  <symbol id="ico-shield" viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5zm-1.3 15.4L6.9 12.6l1.4-1.4 2.4 2.4 5-5 1.4 1.4z"/></symbol>
+  <symbol id="ico-trash" viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></symbol>
+  <symbol id="ico-car" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></symbol>
+  <symbol id="ico-install" viewBox="0 0 24 24"><path d="M17 1H7a2 2 0 0 0-2 2v18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm0 18H7V5h10zm-5-1 4-4h-3V8h-2v6H8z"/></symbol>
+  <symbol id="ico-nav" viewBox="0 0 24 24"><path d="M21 3 3 10.5v1l7 2.5 2.5 7h1z"/></symbol>
+</svg>
+<script src="vendor/leaflet.js"></script>
+<script src="config.js?v=11"></script>
+<script src="i18n.js?v=11"></script>
+<script src="app.js?v=11"></script>
+</body>
+</html>

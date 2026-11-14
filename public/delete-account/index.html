@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מחיקת חשבון ומידע · Get Tefillin</title><link rel="canonical" href="https://get-tefillin.sites.tab.bot/delete-account">
+<meta name="robots" content="noindex">
+<style>
+@font-face{font-family:Heebo;src:url(/fonts/Heebo.ttf)}
+body{margin:0;background:#0f1f3d;color:#f4ecd6;font-family:Heebo,Arial,sans-serif;line-height:1.6}
+main{max-width:620px;margin:0 auto;padding:28px 20px 60px}
+h1{color:#e8be5c;font-size:1.5rem;margin:0 0 6px}h2{color:#e8be5c;font-size:1.05rem;margin:22px 0 6px}
+a{color:#e8be5c}small{color:#b9c3d8}
+form{display:grid;gap:10px;margin-top:10px;background:#16294f;border-radius:14px;padding:16px}
+label{font-size:.95rem}input,select,textarea{font:inherit;padding:10px;border-radius:10px;border:1px solid #2a3d66;background:#0f1f3d;color:#f4ecd6;width:100%;box-sizing:border-box}
+button{font:inherit;font-weight:700;background:#e8be5c;color:#0f1f3d;border:0;border-radius:12px;padding:12px;cursor:pointer}
+#ok{background:#1f4d2e;border-radius:12px;padding:12px}#er{color:#ff9b8a}
+section+section{border-top:1px solid #2a3d66;margin-top:36px;padding-top:20px}
+</style></head><body><main>
+<section lang="he" dir="rtl">
+<h1>מחיקת חשבון ומידע</h1><small>Get Tefillin</small>
+<h2>שליח עם האפליקציה</h2>
+<p>במסך השליח, למטה: <b>"מחיקת ההרשמה שלי"</b>. הכול נמחק מיד: שם, טלפון, מיקום, שעות פעילות וכתובות התראה.</p>
+<h2>כל אחד אחר (גם מזמין, גם בלי האפליקציה)</h2>
+<p>ממלאים את הטופס. נמחק את כל המידע שמשויך למספר הטלפון (בקשות, הודעות צ'אט, תמונות, הרשמת שליח) תוך 30 יום לכל היותר. מונה ההנחות הכללי (מספר בלבד, בלי פרטים) נשאר.</p>
+<form id="f" novalidate>
+<label>מספר טלפון שבו השתמשת *<input name="phone" type="tel" dir="ltr" required autocomplete="tel"></label>
+<label>שם (רשות)<input name="name" autocomplete="name"></label>
+<label>אני<select name="role"><option value="requester">מזמין (הזמנתי תפילין)</option><option value="shaliach">שליח</option><option value="other">אחר</option></select></label>
+<label>הערה (רשות)<textarea name="note" rows="2"></textarea></label>
+<button type="submit">שליחת בקשת מחיקה · Send deletion request</button>
+<p id="er" role="alert"></p>
+</form>
+<p id="ok" hidden>✓ הבקשה התקבלה. המידע יימחק תוך 30 יום לכל היותר. · Request received. Your data will be deleted within 30 days.</p>
+</section>
+<section lang="en" dir="ltr">
+<h1>Account and data deletion</h1><small>Get Tefillin</small>
+<h2>Volunteer with the app</h2>
+<p>On the volunteer screen, at the bottom: <b>"Delete my registration"</b>. Everything is deleted immediately: name, phone, location, active hours and push addresses.</p>
+<h2>Anyone else (requesters too, and without the app)</h2>
+<p>Fill in the form above (phone number required). We delete all data linked to that phone number (requests, chat messages, photos, volunteer registration) within 30 days at most. The overall counter (a number only, no details) is kept.</p>
+<p><a href="/privacy">Privacy policy · מדיניות פרטיות</a></p>
+</section>
+<script>
+document.getElementById("f").onsubmit=function(e){e.preventDefault();var f=e.target,er=document.getElementById("er");er.textContent="";
+var b={phone:f.phone.value,name:f.name.value,role:f.role.value,note:f.note.value};
+if((b.phone.match(/\d/g)||[]).length<7){er.textContent="צריך מספר טלפון תקין · Please enter a valid phone number";return}
+f.querySelector("button").disabled=true;
+fetch("/api/deletion-request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)}).then(function(r){return r.json()}).then(function(j){
+ if(j.ok){f.hidden=true;document.getElementById("ok").hidden=false}else{er.textContent=j.error||"שגיאה, נסה שוב";f.querySelector("button").disabled=false}
+}).catch(function(){er.textContent="שגיאת רשת, נסה שוב · Network error, try again";f.querySelector("button").disabled=false})};
+</script>
+</main></body></html>

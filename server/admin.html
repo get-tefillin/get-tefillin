@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ניהול · Get Tefillin</title>
+<style>
+:root{--navy:#0f1f3d;--gold:#f5b301;--bg:#f4f5f7;--red:#c0392b;--green:#1e9e5a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Heebo,Arial,sans-serif;background:var(--bg);color:#1c2430;padding:16px;max-width:960px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:14px 18px;margin-bottom:16px}
+header h1{font-size:20px}
+header button{background:transparent;border:1px solid #ffffff55;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.card{background:#fff;border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px #0001}
+.card b{display:block;font-size:24px;color:var(--navy)}
+.card span{font-size:12px;color:#667}
+section{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:16px;box-shadow:0 1px 3px #0001}
+h2{font-size:16px;color:var(--navy);margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 8px;border-bottom:1px solid #eee;text-align:right;vertical-align:middle}
+th{color:#667;font-weight:600}
+.badge{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;background:#eee}
+.badge.open{background:#fff3cd}.badge.waiting{background:#ffe8c2}.badge.accepted{background:#d6ecff}.badge.arrived{background:#d2f5e3}.badge.done{background:#e3f2e6}.badge.cancelled{background:#f6dcdc}
+.badge.available{background:#d2f5e3}.badge.standby{background:#fff3cd}.badge.off{background:#eee}
+button.act{border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit}
+.del{background:#fdecea;color:var(--red)}
+.ok{background:#e6f7ee;color:var(--green)}
+.gold{background:var(--gold);color:#221a00}
+img.thumb{max-width:90px;max-height:90px;border-radius:8px;display:block}
+.photo-row{display:flex;gap:14px;align-items:center;border-bottom:1px solid #eee;padding:10px 0}
+.photo-row .grow{flex:1}
+input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #ccd;border-radius:8px;font-family:inherit;font-size:14px}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:#889;font-size:12px}
+.err{color:var(--red);font-size:13px;min-height:18px}
+.toast{position:fixed;bottom:18px;right:50%;transform:translateX(50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:24px;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:640px){table{font-size:12px}th:nth-child(4),td:nth-child(4){display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ניהול · Get Tefillin</h1>
+  <div class="row">
+    <button id="backup" title="הורדת עותק של כל הנתונים">גיבוי ⬇</button>
+    <button id="logout">יציאה</button>
+  </div>
+</header>
+
+<div class="cards" id="cards"></div>
+
+<section>
+  <h2>קישור לתרומה</h2>
+  <div class="row">
+    <input type="url" id="donUrl" dir="ltr" placeholder="https://">
+    <button class="act gold" id="donSave">שמירה</button>
+  </div>
+  <div class="err" id="donErr"></div>
+  <p class="muted">הקישור נפתח מכפתור התרומה באפליקציה. חובה שיתחיל ב־https://</p>
+</section>
+
+<section>
+  <h2>תמונות ממתינות לאישור (קיר התפילין)</h2>
+  <div id="photos"><p class="muted">אין תמונות ממתינות</p></div>
+</section>
+
+<section>
+  <h2>בקשות מחיקת מידע</h2>
+  <div id="deletions"><p class="muted">אין בקשות פתוחות</p></div>
+</section>
+
+<section>
+  <h2>שליחים רשומים</h2>
+  <table id="shTable"><thead><tr>
+    <th>שם</th><th>טלפון</th><th>עיר</th><th>תחבורה</th><th>מצב</th><th>הנחות (חודש/סה״כ)</th><th></th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
+<section>
+  <h2>הזמנות אחרונות</h2>
+  <table id="rqTable"><thead><tr>
+    <th>זמן</th><th>שם</th><th>טלפון</th><th>כתובת</th><th>סטטוס</th><th>שליח</th><th></th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("show")},2500)}
+function api(path,body){
+  return fetch(path,{method:body?"POST":"GET",headers:body?{"content-type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined,credentials:"same-origin",cache:"no-store"})
+    .then(function(r){if(r.status===401){location.href="/";throw new Error("auth")}return r.json()});
+}
+var TR={foot:"ברגל",bike:"אופניים",car:"רכב"};
+var ST={open:"ממתין",waiting:"ממתין (פתוח)",accepted:"נתפס",arrived:"הגיע",done:"בוצע",cancelled:"בוטל"};
+var MODE={available:"זמין",standby:"כונן",off:"כבוי"};
+function ago(ms){var s=Math.max(0,(Date.now()-ms)/1000);if(s<90)return"עכשיו";if(s<3600)return"לפני "+Math.round(s/60)+" דק׳";if(s<86400)return"לפני "+Math.round(s/3600)+" שע׳";return"לפני "+Math.round(s/86400)+" ימים"}
+function dispPhone(p){return p&&p.indexOf("+972")===0?"0"+p.slice(4):(p||"")}
+
+function render(d){
+  var c=$("cards");c.innerHTML="";
+  [["שליחים",d.stats.shluchim],["הזמנות פתוחות",d.stats.requests_open],["הנחות החודש",d.stats.month_done],["סה״כ הנחות",d.stats.total_done],["תמונות לאישור",d.stats.photos_pending],["בקשות מחיקה",d.stats.deletions_open]].forEach(function(x){
+    var el=document.createElement("div");el.className="card";el.innerHTML="<b>"+x[1]+"</b><span>"+x[0]+"</span>";c.appendChild(el)});
+  $("donUrl").value=d.donation_url||"";
+
+  var ph=$("photos");ph.innerHTML=d.photos_pending.length?"":'<p class="muted">אין תמונות ממתינות</p>';
+  d.photos_pending.forEach(function(p){
+    var row=document.createElement("div");row.className="photo-row";
+    row.innerHTML='<img class="thumb" src="/api/photo/'+esc(p.id)+'?admin=1" alt=""><div class="grow"><div>'+(p.role==="s"?"שליח":"מזמין")+" · "+ago(p.at)+'</div><div class="muted">הזמנה '+esc(p.req_id)+"</div></div>";
+    var ok=document.createElement("button");ok.className="act ok";ok.textContent="אישור";ok.onclick=function(){api("/api/admin/photo",{id:p.id,action:"approve"}).then(load)};
+    var no=document.createElement("button");no.className="act del";no.textContent="דחייה";no.onclick=function(){if(confirm("לדחות ולמחוק את התמונה?"))api("/api/admin/photo",{id:p.id,action:"reject"}).then(load)};
+    row.appendChild(ok);row.appendChild(no);ph.appendChild(row)});
+
+  var dl=$("deletions");dl.innerHTML=d.deletions.length?"":'<p class="muted">אין בקשות פתוחות</p>';
+  d.deletions.forEach(function(x){
+    var row=document.createElement("div");row.className="photo-row";
+    row.innerHTML='<div class="grow"><b>'+esc(dispPhone(x.phone))+"</b> · "+esc(x.name||"")+" · "+esc(x.role||"")+'<div class="muted">'+esc(x.note||"")+" · "+ago(x.at)+"</div></div>";
+    var b=document.createElement("button");b.className="act del";b.textContent="מחק את כל המידע";b.onclick=function(){
+      if(confirm("למחוק לצמיתות את כל המידע המקושר לטלפון "+x.phone+"?"))api("/api/admin/deletion/done",{id:x.id}).then(function(j){toast(j.deleted?"נמחקו "+j.deleted+" רשומות":"סומן כבוצע");load()})};
+    row.appendChild(b);dl.appendChild(row)});
+
+  var sb=$("shTable").querySelector("tbody");sb.innerHTML="";
+  d.shluchim.forEach(function(s){
+    var tr=document.createElement("tr");
+    tr.innerHTML="<td><b>"+esc(s.name)+"</b></td><td dir=ltr>"+esc(dispPhone(s.phone))+"</td><td>"+esc(s.city||"")+"</td><td>"+esc(TR[s.transport]||s.transport||"")+'</td><td><span class="badge '+esc(s.mode)+'">'+esc(MODE[s.mode]||s.mode)+"</span></td><td>"+(s.month_count||0)+" / "+(s.done_count||0)+"</td>";
+    var td=document.createElement("td");var b=document.createElement("button");b.className="act del";b.textContent="מחיקה";
+    b.onclick=function(){if(confirm("למחוק את השליח "+s.name+"?"))api("/api/admin/shaliach/delete",{id:s.id}).then(function(j){if(!j.ok)toast(j.code==="busy"?"יש לו הזמנה פעילה":"שגיאה");load()})};
+    td.appendChild(b);tr.appendChild(td);sb.appendChild(tr)});
+
+  var rb=$("rqTable").querySelector("tbody");rb.innerHTML="";
+  d.requests.forEach(function(r){
+    var tr=document.createElement("tr");
+    tr.innerHTML="<td>"+ago(r.created_at)+"</td><td><b>"+esc(r.first_name)+"</b></td><td dir=ltr>"+esc(dispPhone(r.phone))+"</td><td>"+esc(r.address||"")+'</td><td><span class="badge '+esc(r.status)+'">'+esc(ST[r.status]||r.status)+"</span></td><td>"+esc(r.shaliach_name||"")+"</td>";
+    var td=document.createElement("td");var b=document.createElement("button");b.className="act del";b.textContent="מחיקה";
+    b.onclick=function(){if(confirm("למחוק את ההזמנה?"))api("/api/admin/request/delete",{id:r.id}).then(load)};
+    td.appendChild(b);tr.appendChild(td);rb.appendChild(tr)});
+}
+function load(){api("/api/admin/overview").then(render).catch(function(){})}
+$("donSave").onclick=function(){$("donErr").textContent="";
+  api("/api/admin/donation",{url:$("donUrl").value.trim()}).then(function(j){if(j.ok)toast("נשמר");else $("donErr").textContent="כתובת לא תקינה - חובה שתתחיל ב־https://"});};
+$("logout").onclick=function(){api("/api/admin/logout",{}).then(function(){location.href="/"})};
+$("backup").onclick=function(){location.href="/api/admin/export"};
+load();setInterval(load,15000);
+</script>
+</body>
+</html>
