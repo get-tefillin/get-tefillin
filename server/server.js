@@ -816,6 +816,15 @@ const server = http.createServer(async function (req, res) {
       return res.end(ADMIN_HTML);
     }
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405); return res.end(); }
+    /* extensionless paths that name a directory with an index.html redirect to the
+       trailing-slash form (/wall -> /wall/) so links work like the original site */
+    if (!path.extname(pathname) && !pathname.endsWith("/")) {
+      const dirIndex = path.normalize(path.join(PUBLIC, pathname, "index.html"));
+      if (dirIndex.indexOf(PUBLIC) === 0 && fs.existsSync(dirIndex)) {
+        res.writeHead(302, { location: pathname + "/" });
+        return res.end();
+      }
+    }
     return serveStatic(req, res, pathname);
   } catch (e) {
     if (e && e.message === "too_big") return fail(res, "too_big", 413);

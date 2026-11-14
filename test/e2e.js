@@ -51,8 +51,12 @@ async function main() {
     check("GET / serves the app", home.status === 200 && (await home.text()).indexOf("Get Tefillin") >= 0 || home.status === 200);
     const appjs = await fetch(BASE + "/app.js");
     check("GET /app.js", appjs.status === 200);
+    const wallredir = await fetch(BASE + "/wall", { redirect: "manual" });
+    check("GET /wall redirects to /wall/", wallredir.status === 302 && wallredir.headers.get("location") === "/wall/");
     const wallpage = await fetch(BASE + "/wall/");
     check("GET /wall/", wallpage.status === 200);
+    const privredir = await fetch(BASE + "/privacy", { redirect: "manual" });
+    check("GET /privacy redirects", privredir.status === 302);
     const walljs = await fetch(BASE + "/wall.js");
     check("GET /wall.js", walljs.status === 200);
 
