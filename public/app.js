@@ -100,6 +100,13 @@ function speaksYou(langs){return !!(langs&&(langs.indexOf(LANG)>=0||(LANG==="yi"
 function speaksLine(langs){if(!langs||!langs.length)return"";if(speaksYou(langs))return'<span class="speaks yes">'+esc(t("speaks_yours"))+'</span>';
   return'<span class="speaks">'+esc(t("speaks",{langs:langs.map(langName).join(", ")}))+'</span>'}
 function sortedNearby(){return U.nearby.slice().sort(function(a,b){return(speaksYou(b.langs)?1:0)-(speaksYou(a.langs)?1:0)||a.km-b.km})}
+function loadBulletin(){
+  api("GET","/api/bulletin").then(function(j){
+    if(!j||!j.ok)return;
+    var bn=$("homeBanner");if(bn){if(j.announcement){bn.textContent=j.announcement;bn.hidden=false}else bn.hidden=true}
+    var st=$("blStats");if(st){if(j.stats){st.textContent=t("bl_stats",{m:j.stats.month_count,t:j.stats.total_done});st.hidden=false}else st.hidden=true}
+  }).catch(function(){})
+}
 function loadNearby(fitIt){
   if(!U.pos){return}
   api("GET","/api/nearby?lat="+U.pos[0].toFixed(5)+"&lng="+U.pos[1].toFixed(5)+"&lang="+LANG).then(function(j){
@@ -109,7 +116,7 @@ function loadNearby(fitIt){
   })
 }
 function goHome(){
-  stopReqPoll();setModeTabs("user");show("s-home");
+  stopReqPoll();setModeTabs("user");show("s-home");loadBulletin();
   var me=LS.get("me");if(me){if(!$("reqName").value)$("reqName").value=me.name||"";if(!$("reqPhone").value)$("reqPhone").value=me.phone||""}
   whoSync();loadWallCar();
   if(!U.pos){renderNearby();getGps(function(p){setUserPos(p,"gps");renderNearby();loadNearby(true)},function(){openLocPick(t("gps_fail"))})}
@@ -671,7 +678,7 @@ function renderLangButtons(){
 function setLang(l){if(!I.strings[l])return;LANG=l;LS.set("lang",l);applyLang();refreshScreen()}
 function refreshScreen(){
   setDonate();
-  if(cur==="s-home"){locLabel();renderNearby();whoSync();wallSub();$("totalLine").textContent=U.totalDone?t("total_line",{n:U.totalDone}):""}
+  if(cur==="s-home"){locLabel();renderNearby();whoSync();wallSub();loadBulletin();$("totalLine").textContent=U.totalDone?t("total_line",{n:U.totalDone}):""}
   else if(cur==="s-locpick"){if(!U.pickNote)$("locPickNote").textContent=t("locpick_note")}
   else if(cur==="s-match"){$("matchMsg").textContent=U.notified?(U.notified===1?t("sent_one"):t("sent_n",{n:U.notified})):t("sending_req")}
   else if(cur==="s-route"&&U.lastJ){U.relang=true;renderRoute(U.lastJ)}

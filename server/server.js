@@ -301,6 +301,17 @@ async function api(req, res, pathname, query) {
   /* GET /api/config */
   if (pathname === "/api/config" && req.method === "GET") return json(res, 200, { ok: true, donation_url: CFG.donation_url });
 
+  /* GET /api/bulletin — public announcement + optional stats strip for the app home screen */
+  if (pathname === "/api/bulletin" && req.method === "GET") {
+    const st = db.settings || {};
+    const mk = monthKey();
+    return json(res, 200, {
+      ok: true,
+      announcement: st.announcement || null,
+      stats: st.stats_visible ? { month: mk, month_count: (db.counters.by_month || {})[mk] || 0, total_done: db.counters.total_done || 0 } : null
+    });
+  }
+
   /* GET /api/push/key */
   if (pathname === "/api/push/key" && req.method === "GET") return json(res, 200, { key: CFG.vapid.pub });
 
@@ -725,6 +736,20 @@ async function api(req, res, pathname, query) {
         total_shluchim: Object.keys(db.shluchim).length,
         months: months
       });
+    }
+
+    /* Admin: get/set the public announcement + stats visibility */
+    if (sub === "bulletin" && req.method === "GET") {
+      const st = db.settings || {};
+      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible });
+    }
+    if (sub === "bulletin" && req.method === "POST") {
+      const b = await readBody(req);
+      const text = typeof b.announcement === "string" ? b.announcement.trim().slice(0, 500) : "";
+      db.settings.announcement = text || null;
+      db.settings.stats_visible = !!b.stats_visible;
+      store.save();
+      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible });
     }
 
     if (sub === "overview" && req.method === "GET") {

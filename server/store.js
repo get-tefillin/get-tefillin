@@ -11,7 +11,8 @@ function emptyDb() {
     requests: {},   // id -> request record
     photos: {},     // id -> photo meta {id, req_id, role, w, h, approved, at, file}
     deletions: [],  // {id, phone, name, role, note, at, done}
-    counters: { total_done: 0, by_month: {}, photos_by_month: {} }
+    counters: { total_done: 0, by_month: {}, photos_by_month: {} },
+    settings: { announcement: null, stats_visible: false }
   };
 }
 
@@ -27,6 +28,7 @@ class Store {
       this.db = emptyDb();
       this._writeNow();
     }
+    this.db.settings = Object.assign({ announcement: null, stats_visible: false }, this.db.settings || {});
     this._timer = null;
     this._dirty = false;
   }

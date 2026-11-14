@@ -252,6 +252,21 @@ async function main() {
     const stNo = await fetch(BASE + "/api/admin/stats");
     check("stats require admin session", stNo.status === 401, stNo.status);
 
+    /* bulletin: announcement + stats display, off by default, admin-controlled */
+    let bl = await fetch(BASE + "/api/bulletin").then(function (r) { return r.json(); });
+    check("bulletin empty by default", bl.ok === true && bl.announcement === null && bl.stats === null, bl);
+    const blNo = await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    check("bulletin set requires admin session", blNo.status === 401, blNo.status);
+    const blSet = await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ announcement: "מבצע השבוע!", stats_visible: true }) });
+    const blSetJ = await blSet.json();
+    check("bulletin saved", blSetJ.ok === true && blSetJ.announcement === "מבצע השבוע!" && blSetJ.stats_visible === true, blSetJ);
+    bl = await fetch(BASE + "/api/bulletin").then(function (r) { return r.json(); });
+    check("bulletin public after enable", bl.announcement === "מבצע השבוע!" && bl.stats && typeof bl.stats.month_count === "number" && bl.stats.month_count >= 1 && bl.stats.total_done >= 1, bl);
+    await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ announcement: "", stats_visible: false }) });
+    bl = await fetch(BASE + "/api/bulletin").then(function (r) { return r.json(); });
+    check("bulletin hidden when cleared", bl.announcement === null && bl.stats === null, bl);
+    check("home page has bulletin containers", (await fetch(BASE + "/").then(function (r) { return r.text(); })).indexOf('id="homeBanner"') >= 0, "homeBanner");
+
     /* admin page gating */
     const adm = await fetch(BASE + "/admin", { redirect: "manual" });
     check("/admin redirects without session", adm.status === 302, adm.status);
