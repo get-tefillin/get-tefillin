@@ -267,6 +267,19 @@ async function main() {
     check("bulletin hidden when cleared", bl.announcement === null && bl.stats === null, bl);
     check("home page has bulletin containers", (await fetch(BASE + "/").then(function (r) { return r.text(); })).indexOf('id="homeBanner"') >= 0, "homeBanner");
 
+    /* monthly report recipient email: admin-set, validated, independent of bulletin fields */
+    const rpBad = await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ report_email: "not-an-email" }) });
+    check("bad report email rejected", rpBad.status === 400, rpBad.status);
+    const rpSet = await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ report_email: "Ohel@Example.COM " }) });
+    const rpSetJ = await rpSet.json();
+    check("report email saved normalized", rpSetJ.ok === true && rpSetJ.report_email === "ohel@example.com", rpSetJ);
+    const blGet = await fetch(BASE + "/api/admin/bulletin", { headers: { cookie } }).then(function (r) { return r.json(); });
+    check("bulletin get returns report email", blGet.report_email === "ohel@example.com", blGet);
+    await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ announcement: "שוב מבצע", stats_visible: true }) });
+    const blGet2 = await fetch(BASE + "/api/admin/bulletin", { headers: { cookie } }).then(function (r) { return r.json(); });
+    check("bulletin save keeps report email", blGet2.announcement === "שוב מבצע" && blGet2.report_email === "ohel@example.com", blGet2);
+    await fetch(BASE + "/api/admin/bulletin", { method: "POST", headers: { "content-type": "application/json", cookie: cookie }, body: JSON.stringify({ announcement: "", stats_visible: false, report_email: "" }) });
+
     /* admin page gating */
     const adm = await fetch(BASE + "/admin", { redirect: "manual" });
     check("/admin redirects without session", adm.status === 302, adm.status);

@@ -741,15 +741,22 @@ async function api(req, res, pathname, query) {
     /* Admin: get/set the public announcement + stats visibility */
     if (sub === "bulletin" && req.method === "GET") {
       const st = db.settings || {};
-      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible });
+      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible, report_email: st.report_email || null });
     }
     if (sub === "bulletin" && req.method === "POST") {
       const b = await readBody(req);
-      const text = typeof b.announcement === "string" ? b.announcement.trim().slice(0, 500) : "";
-      db.settings.announcement = text || null;
-      db.settings.stats_visible = !!b.stats_visible;
+      if (typeof b.announcement === "string") {
+        const text = b.announcement.trim().slice(0, 500);
+        db.settings.announcement = text || null;
+      }
+      if (typeof b.stats_visible === "boolean") db.settings.stats_visible = b.stats_visible;
+      if (typeof b.report_email === "string") {
+        const em = b.report_email.trim().toLowerCase().slice(0, 200);
+        if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return fail(res, "bad_email", 400);
+        db.settings.report_email = em || null;
+      }
       store.save();
-      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible });
+      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible, report_email: db.settings.report_email });
     }
 
     if (sub === "overview" && req.method === "GET") {

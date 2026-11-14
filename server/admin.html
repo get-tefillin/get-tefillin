@@ -55,6 +55,12 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
   <h2>דו״ח חודשי</h2>
   <p class="muted" id="statsLine"></p>
   <table id="statsTable"><thead><tr><th>חודש</th><th>הנחות תפילין</th><th>אנשים שהניחו</th><th>שלוחים שהשתתפו</th><th>תמונות לקיר</th></tr></thead><tbody></tbody></table>
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <label for="rpEmail" style="font-weight:600">מייל לשליחת הדו״ח החודשי:</label>
+    <input id="rpEmail" type="email" dir="ltr" placeholder="name@example.com" style="flex:1;min-width:200px;border-radius:10px;border:1px solid #ddd;padding:8px;font:inherit">
+    <button class="act gold" id="rpSave">שמירה</button>
+  </div>
+  <p class="muted" style="margin-top:6px">הדיווח האוטומטי יחדש לכתובת זו בכל 1 לחודש לאחר חיבור שירות המיילים. ריק = ללא שליחה.</p>
 </section>
 
 <section>
@@ -165,7 +171,8 @@ function renderStats(d){
     tb.appendChild(tr)});
 }
 function load(){api("/api/admin/overview").then(render).catch(function(){});api("/api/admin/stats").then(renderStats).catch(function(){})}
-function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible}).catch(function(){})}
+function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible;$("rpEmail").value=j.report_email||""}).catch(function(){})}
+$("rpSave").onclick=function(){api("/api/admin/bulletin",{report_email:$("rpEmail").value}).then(function(j){toast(j.ok?"נשמר":(j.code==="bad_email"?"כתובת מייל לא תקינה":"שגיאה"))})};
 $("blSave").onclick=function(){api("/api/admin/bulletin",{announcement:$("blText").value,stats_visible:$("blStatsOn").checked}).then(function(j){toast(j.ok?"נשמר":"שגיאה")})};
 $("donSave").onclick=function(){$("donErr").textContent="";
   api("/api/admin/donation",{url:$("donUrl").value.trim()}).then(function(j){if(j.ok)toast("נשמר");else $("donErr").textContent="כתובת לא תקינה - חובה שתתחיל ב־https://"});};
