@@ -614,6 +614,13 @@ async function api(req, res, pathname, query) {
         const mk = monthKey();
         db.counters.total_done = (db.counters.total_done || 0) + 1;
         db.counters.by_month[mk] = (db.counters.by_month[mk] || 0) + 1;
+        /* monthly participants for the admin report (sets survive the 24h request purge) */
+        db.counters.shluchim_by_month = db.counters.shluchim_by_month || {};
+        db.counters.shluchim_by_month[mk] = db.counters.shluchim_by_month[mk] || {};
+        db.counters.shluchim_by_month[mk][sh.id] = true;
+        db.counters.requesters_by_month = db.counters.requesters_by_month || {};
+        db.counters.requesters_by_month[mk] = db.counters.requesters_by_month[mk] || {};
+        db.counters.requesters_by_month[mk][crypto.createHash("sha1").update(digits(r.phone)).digest("hex").slice(0, 16)] = true;
         store.save();
         return json(res, 200, { ok: true });
       }
@@ -688,6 +695,37 @@ async function api(req, res, pathname, query) {
   if (seg[1] === "admin") {
     if (!sessionOk(req)) return fail(res, "auth", 401);
     const sub = seg[2] || "";
+
+    /* GET /api/admin/stats — monthly report: layings, unique people, participating shluchim, photos,
+       current vs previous month, and all-time totals */
+    if (sub === "stats" && req.method === "GET") {
+      const lay = db.counters.by_month || {};
+      const shm = db.counters.shluchim_by_month || {};
+      const rqm = db.counters.requesters_by_month || {};
+      const phm = db.counters.photos_by_month || {};
+      const keys = {};
+      [lay, shm, rqm, phm].forEach(function (o) { Object.keys(o).forEach(function (k) { keys[k] = true; }); });
+      const months = Object.keys(keys).sort().reverse().map(function (m) {
+        return {
+          month: m,
+          layings: lay[m] || 0,
+          people: Object.keys(rqm[m] || {}).length,
+          shluchim: Object.keys(shm[m] || {}).length,
+          photos: phm[m] || 0
+        };
+      });
+      const cur = monthKey(), prevK = monthKey(now() - 25 * 86400000);
+      const curN = lay[cur] || 0, prevN = lay[prevK] || 0;
+      return json(res, 200, {
+        ok: true,
+        current: cur, current_layings: curN,
+        prev_month: prevK, prev_layings: prevN,
+        pct: prevN ? Math.round(((curN - prevN) / prevN) * 100) : (curN ? 100 : 0),
+        total_layings: db.counters.total_done || 0,
+        total_shluchim: Object.keys(db.shluchim).length,
+        months: months
+      });
+    }
 
     if (sub === "overview" && req.method === "GET") {
       const requests = Object.values(db.requests).sort(function (a, b) { return b.created_at - a.created_at; }).slice(0, 100).map(function (r) {

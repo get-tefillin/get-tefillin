@@ -241,6 +241,17 @@ async function main() {
     const expJ = await exp.json();
     check("export returns db without tokens", exp.status === 200 && expJ.shluchim && Object.values(expJ.shluchim).every(function (s) { return !s.token; }) && Object.values(expJ.requests).every(function (q) { return !q.token; }), exp.status);
 
+    /* admin monthly stats report */
+    const st = await fetch(BASE + "/api/admin/stats", { headers: { cookie } });
+    const stJ = await st.json();
+    const mkNow = new Date().toISOString().slice(0, 7);
+    check("stats endpoint ok", st.status === 200 && stJ.ok === true && stJ.current === mkNow, stJ);
+    check("stats counts the done request", stJ.total_layings >= 1 && stJ.current_layings >= 1, stJ);
+    const stMonth = (stJ.months || []).find(function (m) { return m.month === mkNow; });
+    check("stats month row has layings/people/shluchim", !!stMonth && stMonth.layings >= 1 && stMonth.people >= 1 && stMonth.shluchim >= 1, stMonth);
+    const stNo = await fetch(BASE + "/api/admin/stats");
+    check("stats require admin session", stNo.status === 401, stNo.status);
+
     /* admin page gating */
     const adm = await fetch(BASE + "/admin", { redirect: "manual" });
     check("/admin redirects without session", adm.status === 302, adm.status);

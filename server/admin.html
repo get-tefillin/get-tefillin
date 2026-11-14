@@ -52,6 +52,12 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
 <div class="cards" id="cards"></div>
 
 <section>
+  <h2>דו״ח חודשי</h2>
+  <p class="muted" id="statsLine"></p>
+  <table id="statsTable"><thead><tr><th>חודש</th><th>הנחות תפילין</th><th>אנשים שהניחו</th><th>שלוחים שהשתתפו</th><th>תמונות לקיר</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section>
   <h2>קישור לתרומה</h2>
   <div class="row">
     <input type="url" id="donUrl" dir="ltr" placeholder="https://">
@@ -139,7 +145,18 @@ function render(d){
     b.onclick=function(){if(confirm("למחוק את ההזמנה?"))api("/api/admin/request/delete",{id:r.id}).then(load)};
     td.appendChild(b);tr.appendChild(td);rb.appendChild(tr)});
 }
-function load(){api("/api/admin/overview").then(render).catch(function(){})}
+function renderStats(d){
+  var sign=d.pct>0?"+":"";
+  $("statsLine").textContent="החודש: "+d.current_layings+" הנחות · חודש קודם: "+d.prev_layings+" ("+sign+d.pct+"%) · סה״כ בהיסטוריה: "+d.total_layings+" · שלוחים רשומים: "+d.total_shluchim;
+  var tb=$("statsTable").querySelector("tbody");tb.innerHTML="";
+  if(!d.months.length){tb.innerHTML='<tr><td colspan="5" class="muted">אין עדיין נתונים</td></tr>';return}
+  d.months.forEach(function(m){
+    var tr=document.createElement("tr");
+    tr.innerHTML="<td dir=ltr>"+esc(m.month)+"</td><td><b>"+m.layings+"</b></td><td>"+m.people+"</td><td>"+m.shluchim+"</td><td>"+m.photos+"</td>";
+    if(m.month===d.current)tr.style.fontWeight="800";
+    tb.appendChild(tr)});
+}
+function load(){api("/api/admin/overview").then(render).catch(function(){});api("/api/admin/stats").then(renderStats).catch(function(){})}
 $("donSave").onclick=function(){$("donErr").textContent="";
   api("/api/admin/donation",{url:$("donUrl").value.trim()}).then(function(j){if(j.ok)toast("נשמר");else $("donErr").textContent="כתובת לא תקינה - חובה שתתחיל ב־https://"});};
 $("logout").onclick=function(){api("/api/admin/logout",{}).then(function(){location.href="/"})};
