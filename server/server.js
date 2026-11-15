@@ -804,15 +804,29 @@ async function api(req, res, pathname, query) {
       });
     }
 
-    /* POST /api/admin/report/test — send last month's report now (admin only; still guarded per month) */
+    /* POST /api/admin/report/test — send last month's report now (admin only).
+       Test sends bypass the monthly guard and never touch last_sent_month,
+       so testing can never block the real 1st-of-month send. */
     if (sub === "report" && seg[3] === "test" && req.method === "POST") {
       try {
-        const r = await maybeSendMonthlyReport(true);
+        const keep = db.settings.last_sent_month;
+        db.settings.last_sent_month = null; // bypass guard for the forced send
+        const r = await maybeSendMonthlyReport(true, false);
+        db.settings.last_sent_month = keep;
+        store.save();
         return json(res, 200, r);
       } catch (e) {
         console.error("report test failed:", e.message);
         return json(res, 200, { ok: false, error: "send_failed" });
       }
+    }
+
+    /* POST /api/admin/report/reset-guard — clear last_sent_month (e.g. after a manual send consumed the slot) */
+    if (sub === "report" && seg[3] === "reset-guard" && req.method === "POST") {
+      const was = db.settings.last_sent_month || null;
+      db.settings.last_sent_month = null;
+      store.save();
+      return json(res, 200, { ok: true, was: was });
     }
 
     if (sub === "donation" && req.method === "POST") {
@@ -1012,7 +1026,7 @@ async function sendReportEmail(to, subject, text) {
   return res.json().catch(function () { return {}; });
 }
 
-async function maybeSendMonthlyReport(force) {
+async function maybeSendMonthlyReport(force, markSent) {
   if (!BREVO_API_KEY) return { ok: false, skipped: "no_key" };
   const to = db.settings && db.settings.report_email;
   if (!to) return { ok: false, skipped: "no_recipient" };
@@ -1023,8 +1037,10 @@ async function maybeSendMonthlyReport(force) {
     if (il.d !== 1 || il.h < 9) return { ok: false, skipped: "not_time", month: prev };
   }
   await sendReportEmail(to, "Get Tefillin — דוח חודשי " + prev, reportTextFor(prev));
-  db.settings.last_sent_month = prev;
-  store.save();
+  if (markSent !== false) {
+    db.settings.last_sent_month = prev;
+    store.save();
+  }
   console.log("monthly report emailed to " + to + " for " + prev);
   return { ok: true, month: prev, to: to };
 }
