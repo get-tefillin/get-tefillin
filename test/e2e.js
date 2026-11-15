@@ -57,8 +57,8 @@ async function main() {
     check("GET /wall/", wallpage.status === 200);
     const privredir = await fetch(BASE + "/privacy", { redirect: "manual" });
     check("GET /privacy redirects", privredir.status === 302);
-    const walljs = await fetch(BASE + "/wall.js");
-    check("GET /wall.js", walljs.status === 200);
+    const walljs = await fetch(BASE + "/wall/wall.js");
+    check("GET /wall/wall.js", walljs.status === 200);
 
     /* validation errors */
     let r = await j("POST", "/api/request", { first_name: "A", phone: "0501234567", lat: RQ_POS[0], lng: RQ_POS[1] });
