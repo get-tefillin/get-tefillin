@@ -73,9 +73,9 @@ async function main() {
     check("shaliach register ok", r.j && r.j.ok && typeof r.j.token === "string" && r.j.shaliach.name === "שליח בדיקה", r.j);
     const shTok = r.j.token;
 
-    /* duplicate phone rejected */
+    /* duplicate phone: returning shaliach reconnects to his existing record (no error) */
     r = await j("POST", "/api/shaliach/register", { name: "עוד אחד", phone: "0501112233", transport: "foot", has_tefillin: true, langs: ["he"], lang: "he", tz: "Asia/Jerusalem" });
-    check("duplicate phone rejected", r.j && r.j.ok === false, r.j);
+    check("duplicate phone reconnects existing record", r.j && r.j.ok === true && r.j.token === shTok && r.j.shaliach.name === "שליח בדיקה", r.j);
 
     /* nearby: nothing while off */
     r = await j("GET", "/api/nearby?lat=" + RQ_POS[0] + "&lng=" + RQ_POS[1] + "&lang=he");
@@ -190,6 +190,10 @@ async function main() {
     check("admin overview lists shaliach + request + pending photo", r.j && r.j.ok && r.j.shluchim.length === 1 && r.j.requests.length >= 1 && r.j.photos_pending.length === 1 && r.j.stats.total_done === 1, r.j && r.j.stats);
 
     /* orderer registry (admin backup of everyone who ordered) */
+    r = await j("POST", "/api/admin/report/test", {}, null, { cookie });
+    check("report test without key is skipped", r.j && r.j.ok === false && r.j.skipped === "no_key", r.j);
+
+    r = await j("GET", "/api/admin/overview", null, null, { cookie });
     check("overview lists registered orderers", r.j && Array.isArray(r.j.orderers) && r.j.orderers.length >= 1 && r.j.orderers.some(function(o){return o.name==="מזמין בדיקה" && o.count===1}) && r.j.stats.orderers >= 1, r.j && r.j.orderers);
     r = await j("POST", "/api/request", { first_name: "מזמין בדיקה", phone: "0527654321", lat: RQ_POS[0], lng: RQ_POS[1], device: "testdev1b" });
     check("repeat order by same phone ok", r.j && r.j.ok === true, r.j);

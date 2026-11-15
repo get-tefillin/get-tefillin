@@ -477,7 +477,10 @@ async function api(req, res, pathname, query) {
       if (["foot", "bike", "car"].indexOf(b.transport) < 0) return fail(res, "transport");
       if (b.has_tefillin !== true) return fail(res, "has_tefillin");
       const dup = Object.values(db.shluchim).find(function (s) { return digits(s.phone) === digits(b.phone); });
-      if (dup) return fail(res, "phone"); // this phone is already registered
+      if (dup) {
+        // A returning shaliach reconnects to his existing record — no "already registered" error.
+        return json(res, 200, { ok: true, token: dup.token, shaliach: { name: dup.name, phone: dup.phone, city: dup.city, transport: dup.transport, langs: dup.langs } });
+      }
       const sh = {
         id: rid(12), token: rid(16), name: name, phone: String(b.phone).trim(), city: String(b.city || "").trim(),
         transport: b.transport, has_tefillin: true, langs: Array.isArray(b.langs) && b.langs.length ? b.langs.slice(0, 8) : [String(b.lang || "he")],
@@ -801,6 +804,17 @@ async function api(req, res, pathname, query) {
       });
     }
 
+    /* POST /api/admin/report/test — send last month's report now (admin only; still guarded per month) */
+    if (sub === "report" && seg[3] === "test" && req.method === "POST") {
+      try {
+        const r = await maybeSendMonthlyReport(true);
+        return json(res, 200, r);
+      } catch (e) {
+        console.error("report test failed:", e.message);
+        return json(res, 200, { ok: false, error: "send_failed" });
+      }
+    }
+
     if (sub === "donation" && req.method === "POST") {
       const b = await readBody(req);
       if (!/^https:\/\/.+\..+/.test(String(b.url || ""))) return fail(res, "url");
@@ -950,7 +964,74 @@ const server = http.createServer(async function (req, res) {
   }
 });
 
+
+/* ---------------- monthly report email (Brevo) ----------------
+   On the 1st of each month around 09:00 (Asia/Jerusalem), email last month's
+   stats to settings.report_email. Active only with BREVO_API_KEY set.
+   settings.last_sent_month guards against duplicate sends. */
+const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
+const REPORT_SENDER = process.env.REPORT_SENDER_EMAIL || "bbb770bbbb@gmail.com";
+
+function ilParts(ms) {
+  const o = {};
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false })
+    .formatToParts(new Date(ms == null ? now() : ms)).forEach(function (x) { o[x.type] = x.value; });
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour };
+}
+
+function reportTextFor(mk) {
+  const lay = (db.counters.by_month || {})[mk] || 0;
+  const shm = Object.keys((db.counters.shluchim_by_month || {})[mk] || {}).length;
+  const ppl = Object.keys((db.counters.requesters_by_month || {})[mk] || {}).length;
+  const pho = (db.counters.photos_by_month || {})[mk] || 0;
+  const il = { y: +mk.slice(0, 4), m: +mk.slice(5, 7) };
+  return [
+    "דוח חודשי — Get Tefillin",
+    "חודש: " + il.m + "/" + il.y,
+    "",
+    "הנחות תפילין החודש: " + lay,
+    "מניחים ייחודיים: " + ppl,
+    "שלוחים פעילים החודש: " + shm,
+    "תמונות חדשות לקיר: " + pho,
+    "",
+    "סך הכל הנחות מאז ההתחלה: " + (db.counters.total_done || 0),
+    "שלוחים רשומים: " + Object.keys(db.shluchim).length,
+    "מניחים רשומים (גיבוי): " + Object.keys(db.orderers || {}).length,
+    "",
+    "נשלח אוטומטית מהמערכת ב־1 לחודש."
+  ].join("\n");
+}
+
+async function sendReportEmail(to, subject, text) {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": BREVO_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify({ sender: { email: REPORT_SENDER, name: "Get Tefillin" }, to: [{ email: to }], subject: subject, textContent: text })
+  });
+  if (!res.ok) throw new Error("brevo http " + res.status + ": " + (await res.text()).slice(0, 200));
+  return res.json().catch(function () { return {}; });
+}
+
+async function maybeSendMonthlyReport(force) {
+  if (!BREVO_API_KEY) return { ok: false, skipped: "no_key" };
+  const to = db.settings && db.settings.report_email;
+  if (!to) return { ok: false, skipped: "no_recipient" };
+  const prev = monthKey(now() - 7 * 86400000);
+  if (db.settings.last_sent_month === prev) return { ok: false, skipped: "already_sent", month: prev };
+  if (!force) {
+    const il = ilParts();
+    if (il.d !== 1 || il.h < 9) return { ok: false, skipped: "not_time", month: prev };
+  }
+  await sendReportEmail(to, "Get Tefillin — דוח חודשי " + prev, reportTextFor(prev));
+  db.settings.last_sent_month = prev;
+  store.save();
+  console.log("monthly report emailed to " + to + " for " + prev);
+  return { ok: true, month: prev, to: to };
+}
+setInterval(function () { maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); }); }, 30 * 60000);
+
 store.restore().catch(function () {}).then(function () {
+  maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); });
   server.listen(PORT, function () {
     console.log("Get Tefillin replica listening on http://localhost:" + PORT);
     console.log("Admin page: /admin (code in config.json)");
