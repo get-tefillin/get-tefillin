@@ -1,4 +1,4 @@
-@font-face{font-family:"Heebo";src:url(fonts/Heebo.ttf) format("truetype");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Heebo";src:url(/fonts/Heebo.ttf) format("truetype");font-weight:100 900;font-display:swap}
 :root{--navy:#0f1f3d;--navy2:#1b3263;--gold:#d4a944;--gold2:#e9c873;--ink:#14213d;--muted:#6b7488;--bg:#f6f4ef;--line:#e7e2d6;--ok:#2f9e6b;--bad:#c0503c}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);font-family:"Heebo",system-ui,Arial,sans-serif;color:var(--ink)}
