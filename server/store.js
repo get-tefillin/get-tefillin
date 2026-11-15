@@ -4,6 +4,7 @@
    Writes are atomic (tmp file + rename) and debounced. */
 const fs = require("fs");
 const path = require("path");
+const remote = require("./remote");
 
 function emptyDb() {
   return {
@@ -28,9 +29,31 @@ class Store {
       this.db = emptyDb();
       this._writeNow();
     }
-    this.db.settings = Object.assign({ announcement: null, stats_visible: false, report_email: null }, this.db.settings || {});
+    this._applyDefaults();
     this._timer = null;
     this._dirty = false;
+  }
+  _applyDefaults() {
+    this.db.settings = Object.assign({ announcement: null, stats_visible: false, report_email: null }, this.db.settings || {});
+  }
+  /* Pull the last remotely-backed-up db (survives redeploys). Remote wins when
+     it exists; local file is only a cache. No-op when remote is not configured. */
+  async restore() {
+    if (!remote.ENABLED) return;
+    try {
+      const raw = await remote.loadDb();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          this.db = parsed;
+          this._applyDefaults();
+          this._writeNow(true);
+          console.log("Remote db restored (" + raw.length + " bytes)");
+        }
+      }
+    } catch (e) {
+      console.error("remote db restore failed:", e.message);
+    }
   }
   save() {
     this._dirty = true;
@@ -42,10 +65,12 @@ class Store {
     this._dirty = false;
     this._writeNow();
   }
-  _writeNow() {
+  _writeNow(skipRemote) {
+    const json = JSON.stringify(this.db);
     const tmp = this.file + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(this.db));
+    fs.writeFileSync(tmp, json);
     fs.renameSync(tmp, this.file);
+    if (!skipRemote) remote.saveDb(json);
   }
 }
 

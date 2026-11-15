@@ -12,6 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { Store } = require("./store");
+const remote = require("./remote");
 const push = require("./push");
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
@@ -400,6 +401,7 @@ async function api(req, res, pathname, query) {
     const p = { id: rid(12), req_id: r.id, role: role, w: parseInt(query.w || "0", 10) || 0, h: parseInt(query.h || "0", 10) || 0, approved: false, at: now(), file: "" };
     p.file = p.id + ".jpg";
     fs.writeFileSync(path.join(store.photoDir, p.file), body);
+    remote.putPhoto(p.file, body);
     db.photos[p.id] = p; store.save();
     return json(res, 200, { ok: true, id: p.id });
   }
@@ -407,10 +409,16 @@ async function api(req, res, pathname, query) {
   /* GET /api/photo/:id — approved photos are public; pending need the admin session */
   if (seg[1] === "photo" && seg[2] && req.method === "GET") {
     const p = db.photos[seg[2]];
-    if (!p || !fs.existsSync(path.join(store.photoDir, p.file))) return fail(res, "not_found", 404);
+    if (!p) return fail(res, "not_found", 404);
     if (!p.approved && !sessionOk(req)) return fail(res, "not_found", 404);
+    const fp = path.join(store.photoDir, p.file);
+    if (!fs.existsSync(fp)) {
+      const buf = await remote.getPhoto(p.file);
+      if (!buf) return fail(res, "not_found", 404);
+      try { fs.writeFileSync(fp, buf); } catch (e) {}
+    }
     res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" });
-    return fs.createReadStream(path.join(store.photoDir, p.file)).pipe(res);
+    return fs.createReadStream(fp).pipe(res);
   }
 
   /* GET /api/wall[/latest] — public tefillin wall */
@@ -495,9 +503,10 @@ async function api(req, res, pathname, query) {
       const body = await readBody(req, PHOTO_MAX_BYTES + 1, true);
       if (body.length > PHOTO_MAX_BYTES) return fail(res, "photo_big");
       if (body.length < 100 || body[0] !== 0xff || body[1] !== 0xd8) return fail(res, "photo_type");
-      if (sh.photo) { try { fs.unlinkSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg")); } catch (e) {} }
+      if (sh.photo) { try { fs.unlinkSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg")); } catch (e) {} remote.delPhoto("sh-" + sh.photo + ".jpg"); }
       sh.photo = rid(12);
       fs.writeFileSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg"), body);
+      remote.putPhoto("sh-" + sh.photo + ".jpg", body);
       store.save();
       return json(res, 200, { ok: true, photo: sh.photo });
     }
@@ -803,7 +812,7 @@ async function api(req, res, pathname, query) {
         return json(res, 200, { ok: true });
       }
       // reject: delete the file and record
-      try { fs.unlinkSync(path.join(store.photoDir, p.file)); } catch (e) {}
+      try { fs.unlinkSync(path.join(store.photoDir, p.file)); } catch (e) {} remote.delPhoto(p.file);
       delete db.photos[p.id]; store.save();
       return json(res, 200, { ok: true });
     }
@@ -931,9 +940,11 @@ const server = http.createServer(async function (req, res) {
   }
 });
 
-server.listen(PORT, function () {
-  console.log("Get Tefillin replica listening on http://localhost:" + PORT);
-  console.log("Admin page: /admin (code in config.json)");
+store.restore().catch(function () {}).then(function () {
+  server.listen(PORT, function () {
+    console.log("Get Tefillin replica listening on http://localhost:" + PORT);
+    console.log("Admin page: /admin (code in config.json)");
+  });
 });
 process.on("SIGINT", function () { store.flush(); process.exit(0); });
 process.on("SIGTERM", function () { store.flush(); process.exit(0); });
