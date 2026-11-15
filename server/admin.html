@@ -105,6 +105,14 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
   </tr></thead><tbody></tbody></table>
 </section>
 
+<section>
+  <h2>מניחים רשומים · גיבוי</h2>
+  <p class="muted">כל מי שהזמין פעם — נשמר כאן בלבד (וגם במכשיר שלו). לא נמחק אחרי 24 שעות.</p>
+  <table id="orTable"><thead><tr>
+    <th>שם</th><th>טלפון</th><th>הזמנות</th><th>לאחרונה</th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -123,7 +131,7 @@ function dispPhone(p){return p&&p.indexOf("+972")===0?"0"+p.slice(4):(p||"")}
 
 function render(d){
   var c=$("cards");c.innerHTML="";
-  [["שליחים",d.stats.shluchim],["הזמנות פתוחות",d.stats.requests_open],["הנחות החודש",d.stats.month_done],["סה״כ הנחות",d.stats.total_done],["תמונות לאישור",d.stats.photos_pending],["בקשות מחיקה",d.stats.deletions_open]].forEach(function(x){
+  [["שליחים",d.stats.shluchim],["מניחים רשומים",d.stats.orderers||0],["הזמנות פתוחות",d.stats.requests_open],["הנחות החודש",d.stats.month_done],["סה״כ הנחות",d.stats.total_done],["תמונות לאישור",d.stats.photos_pending],["בקשות מחיקה",d.stats.deletions_open]].forEach(function(x){
     var el=document.createElement("div");el.className="card";el.innerHTML="<b>"+x[1]+"</b><span>"+x[0]+"</span>";c.appendChild(el)});
   $("donUrl").value=d.donation_url||"";
 
@@ -150,6 +158,12 @@ function render(d){
     var td=document.createElement("td");var b=document.createElement("button");b.className="act del";b.textContent="מחיקה";
     b.onclick=function(){if(confirm("למחוק את השליח "+s.name+"?"))api("/api/admin/shaliach/delete",{id:s.id}).then(function(j){if(!j.ok)toast(j.code==="busy"?"יש לו הזמנה פעילה":"שגיאה");load()})};
     td.appendChild(b);tr.appendChild(td);sb.appendChild(tr)});
+
+  var ob=$("orTable").querySelector("tbody");ob.innerHTML="";
+  (d.orderers||[]).forEach(function(o){
+    var tr=document.createElement("tr");
+    tr.innerHTML="<td><b>"+esc(o.name)+"</b></td><td dir=ltr>"+esc(dispPhone(o.phone))+"</td><td>"+(o.count||1)+"</td><td>"+ago(o.last_at)+"</td>";
+    ob.appendChild(tr)});
 
   var rb=$("rqTable").querySelector("tbody");rb.innerHTML="";
   d.requests.forEach(function(r){

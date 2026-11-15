@@ -189,6 +189,16 @@ async function main() {
     r = await j("GET", "/api/admin/overview", null, null, { cookie });
     check("admin overview lists shaliach + request + pending photo", r.j && r.j.ok && r.j.shluchim.length === 1 && r.j.requests.length >= 1 && r.j.photos_pending.length === 1 && r.j.stats.total_done === 1, r.j && r.j.stats);
 
+    /* orderer registry (admin backup of everyone who ordered) */
+    check("overview lists registered orderers", r.j && Array.isArray(r.j.orderers) && r.j.orderers.length >= 1 && r.j.orderers.some(function(o){return o.name==="מזמין בדיקה" && o.count===1}) && r.j.stats.orderers >= 1, r.j && r.j.orderers);
+    r = await j("POST", "/api/request", { first_name: "מזמין בדיקה", phone: "0527654321", lat: RQ_POS[0], lng: RQ_POS[1], device: "testdev1b" });
+    check("repeat order by same phone ok", r.j && r.j.ok === true, r.j);
+    if (r.j && r.j.ok) await j("POST", "/api/request/" + r.j.id + "/cancel", {}, r.j.token);
+    r = await j("GET", "/api/admin/overview", null, null, { cookie });
+    check("orderer count incremented, still one row", r.j && r.j.orderers.filter(function(o){return o.phone.indexOf("0527654321")>=0}).length === 1 && r.j.orderers.find(function(o){return o.phone.indexOf("0527654321")>=0}).count === 2, r.j && r.j.orderers);
+    r = await j("GET", "/api/admin/export", null, null, { cookie });
+    check("backup export includes orderers", r.j && r.j.orderers && Object.values(r.j.orderers).some(function(o){return o.name==="מזמין בדיקה"}), r.status);
+
     /* approve the photo */
     r = await j("POST", "/api/admin/photo", { id: photoId, action: "approve" }, null, { cookie });
     check("photo approved", r.j && r.j.ok === true, r.j);

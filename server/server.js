@@ -342,7 +342,13 @@ async function api(req, res, pathname, query) {
       status: "open", created_at: now(), declined: {}, chat: [], chat_seq: 0
     };
     startRing(r);
-    db.requests[r.id] = r; store.save();
+    db.requests[r.id] = r;
+    // permanent orderer registry (admin backup); survives the 24h request purge
+    const ph = digits(r.phone);
+    const o = db.orderers[ph] || { name: name, phone: r.phone, first_at: now(), count: 0 };
+    o.name = name; o.phone = r.phone; o.last_at = now(); o.count = (o.count || 0) + 1;
+    db.orderers[ph] = o;
+    store.save();
     return json(res, 200, { ok: true, id: r.id, token: r.token, notified: r.notified });
   }
 
@@ -778,6 +784,8 @@ async function api(req, res, pathname, query) {
       const pending = Object.values(db.photos).filter(function (p) { return !p.approved; }).sort(function (a, b) { return b.at - a.at; })
         .map(function (p) { return { id: p.id, req_id: p.req_id, role: p.role, w: p.w, h: p.h, at: p.at } });
       const deletions = db.deletions.filter(function (d) { return !d.done; }).sort(function (a, b) { return b.at - a.at; });
+      const orderers = Object.values(db.orderers || {}).sort(function (a, b) { return (b.last_at || 0) - (a.last_at || 0); })
+        .map(function (o) { return { name: o.name, phone: o.phone, count: o.count || 1, first_at: o.first_at || 0, last_at: o.last_at || 0 }; });
       return json(res, 200, {
         ok: true, donation_url: CFG.donation_url,
         stats: {
@@ -786,9 +794,10 @@ async function api(req, res, pathname, query) {
           month_done: db.counters.by_month[monthKey()] || 0,
           total_done: db.counters.total_done || 0,
           photos_pending: pending.length,
-          deletions_open: deletions.length
+          deletions_open: deletions.length,
+          orderers: orderers.length
         },
-        shluchim: shluchim, requests: requests, photos_pending: pending, deletions: deletions
+        shluchim: shluchim, orderers: orderers, requests: requests, photos_pending: pending, deletions: deletions
       });
     }
 
@@ -855,6 +864,7 @@ async function api(req, res, pathname, query) {
           delete db.requests[r.id]; deleted++;
         }
       });
+      if (db.orderers && db.orderers[want]) { delete db.orderers[want]; deleted++; }
       d.done = true; store.save();
       return json(res, 200, { ok: true, deleted: deleted });
     }

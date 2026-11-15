@@ -9,6 +9,7 @@ const remote = require("./remote");
 function emptyDb() {
   return {
     shluchim: {},   // id -> shaliach record
+    orderers: {},   // normalized phone -> {name, phone, first_at, last_at, count} — permanent registry, admin backup
     requests: {},   // id -> request record
     photos: {},     // id -> photo meta {id, req_id, role, w, h, approved, at, file}
     deletions: [],  // {id, phone, name, role, note, at, done}
@@ -35,6 +36,7 @@ class Store {
   }
   _applyDefaults() {
     this.db.settings = Object.assign({ announcement: null, stats_visible: false, report_email: null }, this.db.settings || {});
+    if (!this.db.orderers || typeof this.db.orderers !== "object") this.db.orderers = {};
   }
   /* Pull the last remotely-backed-up db (survives redeploys). Remote wins when
      it exists; local file is only a cache. No-op when remote is not configured. */
