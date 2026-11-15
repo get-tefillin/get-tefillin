@@ -28,7 +28,7 @@ class Store {
       this.db = JSON.parse(fs.readFileSync(this.file, "utf8"));
     } catch (e) {
       this.db = emptyDb();
-      this._writeNow();
+      this._writeNow(true); // bootstrap file only — never push an empty db over the remote copy
     }
     this._applyDefaults();
     this._timer = null;
@@ -47,7 +47,8 @@ class Store {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object") {
-          this.db = parsed;
+          Object.keys(this.db).forEach(function (k) { delete this.db[k]; }, this);
+          Object.assign(this.db, parsed); // keep the same object: server.js holds `const db = store.db`
           this._applyDefaults();
           this._writeNow(true);
           console.log("Remote db restored (" + raw.length + " bytes)");
