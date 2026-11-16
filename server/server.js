@@ -551,7 +551,7 @@ async function api(req, res, pathname, query) {
       const dup = Object.values(db.shluchim).find(function (s) { return digits(s.phone) === digits(b.phone); });
       if (dup) {
         // A returning shaliach reconnects to his existing record — no "already registered" error.
-        return json(res, 200, { ok: true, token: dup.token, shaliach: { name: dup.name, phone: dup.phone, city: dup.city, transport: dup.transport, langs: dup.langs } });
+        return json(res, 200, { ok: true, token: dup.token, shaliach: meView(dup) });
       }
       const sh = {
         id: rid(12), token: rid(16), name: name, phone: String(b.phone).trim(), city: String(b.city || "").trim(),
@@ -561,7 +561,7 @@ async function api(req, res, pathname, query) {
         lat: null, lng: null, loc_at: 0, created_at: now(), done_count: 0, photo: null, push: []
       };
       db.shluchim[sh.id] = sh; store.save();
-      return json(res, 200, { ok: true, token: sh.token, shaliach: { name: sh.name, phone: sh.phone, city: sh.city, transport: sh.transport, langs: sh.langs } });
+      return json(res, 200, { ok: true, token: sh.token, shaliach: meView(sh) });
     }
 
     /* GET /api/shaliach/photo/:photoId — public shaliach photo */
