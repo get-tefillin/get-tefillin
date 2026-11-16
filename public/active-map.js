@@ -8,6 +8,6 @@ window.TN_ACTIVE_MAP=function(map){
  map.on('moveend',function(){if(!visible)return;clearTimeout(debounce);debounce=setTimeout(function(){update(false)},250)});
  document.addEventListener('visibilitychange',function(){if(!document.hidden&&visible)update(false)});
  timer=setInterval(function(){if(lastGood&&Date.now()-lastGood>30000)layer.clearLayers();update(false)},15000);
- return {show:function(on){visible=on;seq++;if(on){layer.addTo(map);status.textContent=say('מעדכן שלוחים פעילים…','Updating active volunteers…');update(false)}else{layer.clearLayers();layer.remove()}},all:function(){update(true)}};
+ return {show:function(on){visible=on;seq++;if(on){layer.addTo(map);status.textContent=say('מעדכן שלוחים פעילים…','Updating active volunteers…');update(true)}else{layer.clearLayers();layer.remove()}},all:function(){update(true)}};
 };
 })();
