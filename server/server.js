@@ -878,6 +878,39 @@ async function api(req, res, pathname, query) {
       return json(res, 200, { ok: true });
     }
 
+    /* Test-data tools: distinct record removal and aggregate statistics reset. */
+    if (sub === "orderer" && seg[3] === "delete" && req.method === "POST") {
+      const b = await readBody(req);
+      const phone = digits(b.phone);
+      if (!phone || b.confirm !== "DELETE " + phone) return fail(res, "confirmation", 400);
+      if (!db.orderers[phone]) return fail(res, "not_found", 404);
+      const linked = Object.values(db.requests).filter(r => digits(r.phone) === phone);
+      if (linked.some(r => r.status === "accepted" || r.status === "arrived")) return fail(res, "busy", 409);
+      const ids = new Set(linked.map(r => r.id));
+      let photos = 0;
+      Object.values(db.photos).forEach(function(p) {
+        if (!ids.has(p.req_id)) return;
+        try { fs.unlinkSync(path.join(store.photoDir, p.file)); } catch(e) {}
+        remote.delPhoto(p.file); delete db.photos[p.id]; photos++;
+      });
+      linked.forEach(r => { delete db.requests[r.id]; });
+      delete db.orderers[phone]; store.save();
+      return json(res, 200, {ok:true, requests_deleted:linked.length, photos_deleted:photos, counters_unchanged:true});
+    }
+    if (sub === "stats" && seg[3] === "reset-month" && req.method === "POST") {
+      const b = await readBody(req), mk = monthKey();
+      if (b.month !== mk || b.confirm !== "RESET " + mk) return fail(res, "confirmation", 400);
+      const removed = db.counters.by_month[mk] || 0;
+      db.counters.by_month[mk] = 0;
+      db.counters.total_done = Math.max(0, (db.counters.total_done || 0) - removed);
+      if (db.counters.shluchim_by_month) db.counters.shluchim_by_month[mk] = {};
+      if (db.counters.requesters_by_month) db.counters.requesters_by_month[mk] = {};
+      // Preserve records, photos, volunteers' personal lifetime totals and email guard.
+      db.settings.stats_resets = (db.settings.stats_resets || []).concat([{month:mk, at:now(), removed:removed}]).slice(-50);
+      store.save();
+      return json(res, 200, {ok:true, month:mk, removed:removed, total_done:db.counters.total_done});
+    }
+
     if (sub === "request" && seg[3] === "delete" && req.method === "POST") {
       const b = await readBody(req);
       const r = db.requests[String(b.id || "")];

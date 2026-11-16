@@ -53,6 +53,9 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
 
 <section>
   <h2>דו״ח חודשי</h2>
+  <p class="muted">ניקוי בדיקות: מחיקת מניח או הזמנה אינה משנה מונים היסטוריים. לאיפוס נתוני הבדיקות השתמשו בכפתור הנפרד.</p>
+  <button class="act del" id="resetMonth">איפוס מוני ההנחות של החודש הנוכחי</button>
+  <p class="muted">האיפוס מאפס את ההנחות, המניחים הייחודיים והשלוחים המשתתפים בדו״ח החודשי, ומפחית את הנחות החודש מהסך הכל. אינו מוחק רשומות, תמונות או מונים אישיים של שלוחים. לא משנה חודשים קודמים. מומלץ להוריד גיבוי קודם.</p>
   <p class="muted" id="statsLine"></p>
   <table id="statsTable"><thead><tr><th>חודש</th><th>הנחות תפילין</th><th>אנשים שהניחו</th><th>שלוחים שהשתתפו</th><th>תמונות לקיר</th></tr></thead><tbody></tbody></table>
   <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -109,7 +112,7 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
   <h2>מניחים רשומים · גיבוי</h2>
   <p class="muted">כל מי שהזמין פעם — נשמר כאן בלבד (וגם במכשיר שלו). לא נמחק אחרי 24 שעות.</p>
   <table id="orTable"><thead><tr>
-    <th>שם</th><th>טלפון</th><th>הזמנות</th><th>לאחרונה</th>
+    <th>שם</th><th>טלפון</th><th>הזמנות</th><th>לאחרונה</th><th></th>
   </tr></thead><tbody></tbody></table>
 </section>
 
@@ -163,7 +166,12 @@ function render(d){
   (d.orderers||[]).forEach(function(o){
     var tr=document.createElement("tr");
     tr.innerHTML="<td><b>"+esc(o.name)+"</b></td><td dir=ltr>"+esc(dispPhone(o.phone))+"</td><td>"+(o.count||1)+"</td><td>"+ago(o.last_at)+"</td>";
-    ob.appendChild(tr)});
+    var td=document.createElement("td"),b=document.createElement("button");b.className="act del";b.textContent="מחיקת מניח ובקשותיו";
+    b.onclick=function(){if(!confirm("למחוק את "+o.name+" ("+o.phone+") ואת כל בקשותיו ותמונותיהן? המונים ההיסטוריים לא ישתנו. הפעולה בלתי הפיכה; מומלץ להוריד גיבוי קודם."))return;
+      var phone=String(o.phone).replace(/\D/g,"");
+      if(prompt("לאישור המחיקה הקלידו את מספר הטלפון:")!==phone)return;
+      b.disabled=true;api("/api/admin/orderer/delete",{phone:phone,confirm:"DELETE "+phone}).then(function(j){toast(j.ok?"המניח ובקשותיו נמחקו; המונים לא שונו":j.code==="busy"?"יש קריאה פעילה. יש לסיים או לבטל אותה תחילה":"המחיקה לא בוצעה");load()}).catch(function(){toast("המחיקה לא אושרה. בדקו חיבור ונסו שוב");b.disabled=false})};
+    td.appendChild(b);tr.appendChild(td);ob.appendChild(tr)});
 
   var rb=$("rqTable").querySelector("tbody");rb.innerHTML="";
   d.requests.forEach(function(r){
@@ -173,7 +181,16 @@ function render(d){
     b.onclick=function(){if(confirm("למחוק את ההזמנה?"))api("/api/admin/request/delete",{id:r.id}).then(load)};
     td.appendChild(b);tr.appendChild(td);rb.appendChild(tr)});
 }
+var statsMonth=null;
+$("resetMonth").onclick=function(){
+ if(!statsMonth)return;
+ if(!confirm("איפוס מוני ההנחות לחודש "+statsMonth+"? הכמות תופחת גם מהסך הכול. חודשים קודמים, רשומות, תמונות ומונים אישיים יישמרו. מומלץ להוריד גיבוי קודם."))return;
+ if(prompt("לאישור הקלידו: איפוס "+statsMonth)!=="איפוס "+statsMonth)return;
+ var b=$("resetMonth");b.disabled=true;
+ api("/api/admin/stats/reset-month",{month:statsMonth,confirm:"RESET "+statsMonth}).then(function(j){toast(j.ok?"מוני החודש אופסו. הופחתו "+j.removed+" הנחות מהסך הכול":"האיפוס לא בוצע");load()}).catch(function(){toast("האיפוס לא אושר. בדקו חיבור")}).finally(function(){b.disabled=false})
+};
 function renderStats(d){
+  statsMonth=d.current;
   var sign=d.pct>0?"+":"";
   $("statsLine").textContent="החודש: "+d.current_layings+" הנחות · חודש קודם: "+d.prev_layings+" ("+sign+d.pct+"%) · סה״כ בהיסטוריה: "+d.total_layings+" · שלוחים רשומים: "+d.total_shluchim;
   var tb=$("statsTable").querySelector("tbody");tb.innerHTML="";

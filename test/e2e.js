@@ -310,6 +310,30 @@ async function main() {
     const adm2 = await fetch(BASE + "/admin", { headers: { cookie } });
     check("/admin serves page with session", adm2.status === 200 && (await adm2.text()).indexOf("ניהול") >= 0, adm2.status);
 
+    /* Admin test-data tools: isolated fixtures only. */
+    r = await j("POST", "/api/request", {first_name:"ניקוי בדיקה",phone:"0509998877",lat:RQ_POS[0],lng:RQ_POS[1],device:"cleanup-test"});
+    const cleanupId=r.j.id;
+    const beforeCleanup=await j("GET","/api/admin/stats",null,null,{cookie});
+    r=await j("POST","/api/admin/orderer/delete",{phone:"0509998877"},null,{cookie});
+    check("orderer delete requires explicit confirmation",r.status===400);
+    r=await j("POST","/api/admin/orderer/delete",{phone:"0509998877",confirm:"DELETE 0509998877"},null,{cookie});
+    check("orderer and linked test request removed",r.j.ok&&r.j.requests_deleted===1&&r.j.counters_unchanged);
+    r=await j("GET","/api/admin/overview",null,null,{cookie});
+    check("cleaned orderer and request absent",!r.j.orderers.some(o=>o.phone==="0509998877")&&!r.j.requests.some(x=>x.id===cleanupId));
+    const afterCleanup=await j("GET","/api/admin/stats",null,null,{cookie});
+    check("record cleanup preserves durable counters",afterCleanup.j.total_layings===beforeCleanup.j.total_layings);
+    r=await j("POST","/api/admin/stats/reset-month",{month:afterCleanup.j.current},null,{cookie});
+    check("monthly reset requires confirmation",r.status===400);
+    r=await j("POST","/api/admin/stats/reset-month",{month:afterCleanup.j.current,confirm:"RESET "+afterCleanup.j.current});
+    check("monthly reset requires admin session",r.status===401);
+    const month=afterCleanup.j.current;
+    r=await j("POST","/api/admin/stats/reset-month",{month:month,confirm:"RESET "+month},null,{cookie});
+    check("monthly reset subtracts only current-month aggregate",r.j.ok&&r.j.removed===afterCleanup.j.current_layings&&r.j.total_done===Math.max(0,afterCleanup.j.total_layings-afterCleanup.j.current_layings));
+    const resetStats=await j("GET","/api/admin/stats",null,null,{cookie});
+    check("monthly report reset visible",resetStats.j.current_layings===0&&resetStats.j.prev_layings===afterCleanup.j.prev_layings);
+    r=await j("POST","/api/admin/stats/reset-month",{month:month,confirm:"RESET "+month},null,{cookie});
+    check("repeating reset cannot double subtract",r.j.ok&&r.j.removed===0&&r.j.total_done===resetStats.j.total_layings);
+
     /* push key endpoint */
     r = await j("GET", "/api/push/key");
     check("push key present", r.j && typeof r.j.key === "string" && r.j.key.length > 20, r.j);
