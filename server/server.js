@@ -157,6 +157,19 @@ function nearbyCard(sh, pos) {
 function shaliachFresh(sh) {
   return Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
 }
+/* A coverage area is an explicit private opt-in, never a live-map location. */
+function coverageValid(c) {
+  return !!(c && c.enabled === true && Number.isFinite(c.lat) && Math.abs(c.lat) <= 90 && Number.isFinite(c.lng) && Math.abs(c.lng) <= 180 && Number.isFinite(c.radius_km) && c.radius_km >= 1 && c.radius_km <= 100 && typeof c.label === "string" && c.label.trim());
+}
+function dispatchDistance(sh, r) {
+  if (sh.mode === "off" || activeJob(sh.id) || !alertState(sh).alerts) return null;
+  const pos = [r.lat, r.lng], c = sh.coverage;
+  const live = shaliachFresh(sh) ? km(pos, [sh.lat, sh.lng]) : Infinity;
+  const fixed = coverageValid(c) ? km(pos, [c.lat, c.lng]) : Infinity;
+  if (live <= RING_RADIUS_KM) return live;
+  if (coverageValid(c) && fixed <= c.radius_km) return fixed;
+  return null;
+}
 function liveShluchim(pos, radiusKm) {
   return Object.values(db.shluchim)
     .filter(function (sh) { return sh.mode !== "off" && shaliachFresh(sh) && alertState(sh).alerts && !activeJob(sh.id); })
@@ -174,8 +187,9 @@ function activeJob(shId) {
 
 /* ring / notify */
 function ringCandidates(req) {
-  return liveShluchim([req.lat, req.lng], RING_RADIUS_KM)
-    .filter(function (x) { return !(req.declined && req.declined[x.sh.id]); })
+  return Object.values(db.shluchim).map(sh => ({sh:sh,km:dispatchDistance(sh,req)}))
+    .filter(x => x.km !== null && !(req.declined && req.declined[x.sh.id]))
+    .sort((a,b) => a.km-b.km)
     .slice(0, RING_MAX)
     .map(function (x) { return x.sh.id; });
 }
@@ -189,7 +203,7 @@ function startRing(req) {
     const sh = db.shluchim[sid];
     if (!sh || !(sh.push || []).length) return;
     if (!alertState(sh).alerts) return;
-    push.sendToShaliach(CFG.vapid, sh, { type: "req", id: req.id, title: "Get Tefillin", body: "בקשת תפילין חדשה בקרבתך", url: "/?r=" + req.id + "#vol" }, CFG.contact, function (gone) {
+    push.sendToShaliach(CFG.vapid, sh, { type: "req", id: req.id, title: "Get Tefillin", body: "בקשת תפילין חדשה באזור הפעילות שלך", url: "/?r=" + req.id + "#vol" }, CFG.contact, function (gone) {
       sh.push = (sh.push || []).filter(function (s) { return s.endpoint !== gone.endpoint; }); store.save();
     }).then(function(accepted){req.push_accepted=(req.push_accepted||0)+accepted;req.push_failed=(req.push_failed||0)+Math.max(0,(sh.push||[]).length-accepted);store.save()}).catch(function(){req.push_failed=(req.push_failed||0)+1;store.save()});
   });
@@ -204,7 +218,7 @@ function reqViewForRequester(r) {
   const out = { ok: true, status: r.status, lat: r.lat, lng: r.lng, notified: r.notified || 0, screen_seen: Object.keys(r.screen_seen||{}).length, push_accepted:r.push_accepted||0, push_failed:r.push_failed||0, ring_left_s: ringLeft(r) };
   if (r.shaliach_id && db.shluchim[r.shaliach_id]) {
     const sh = db.shluchim[r.shaliach_id];
-    const k = sh.lat != null ? km([r.lat, r.lng], [sh.lat, sh.lng]) : null;
+    const k = shaliachFresh(sh) ? km([r.lat, r.lng], [sh.lat, sh.lng]) : null;
     out.shaliach = {
       name: sh.name, phone: sh.phone, lat: sh.lat, lng: sh.lng,
       km: k == null ? null : Math.round(k * 100) / 100,
@@ -216,11 +230,11 @@ function reqViewForRequester(r) {
   return out;
 }
 function ringItem(r, sh) {
-  const k = (sh.lat != null) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
+  const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
   return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), ring_left_s: ringLeft(r), lang: r.lang || null };
 }
 function jobView(r, sh) {
-  const k = (sh.lat != null) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
+  const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
   return { id: r.id, first_name: r.first_name, phone: r.phone, lat: r.lat, lng: r.lng, km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), lang: r.lang || null, status: r.status };
 }
 function meView(sh) {
@@ -229,7 +243,7 @@ function meView(sh) {
     name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [],
     mode: sh.mode, hours: sh.hours || { on: false, days: [null, null, null, null, null, null, null] }, tz: sh.tz || "Asia/Jerusalem",
     alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined,
-    location_ready: shaliachFresh(sh),location_age_s:sh.loc_at?Math.round((now()-sh.loc_at)/1000):null,push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
+    coverage: coverageValid(sh.coverage) ? sh.coverage : null, location_ready: shaliachFresh(sh),location_age_s:sh.loc_at?Math.round((now()-sh.loc_at)/1000):null,push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
   };
 }
 
@@ -632,6 +646,17 @@ async function api(req, res, pathname, query) {
       return json(res, 200, { ok: true, mode: sh.mode, hours: sh.hours, tz: sh.tz, alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined, push_devices: (sh.push || []).length });
     }
 
+    if (sub === "coverage" && req.method === "POST") {
+      const b = await readBody(req);
+      if (b.enabled === false) sh.coverage = null;
+      else {
+        const c = {enabled:b.enabled, label:typeof b.label === "string" ? b.label.trim().slice(0,200) : "",lat:b.lat,lng:b.lng,radius_km:b.radius_km};
+        if (!coverageValid(c)) return fail(res, "coverage", 400);
+        sh.coverage = c;
+      }
+      store.save(); return json(res, 200, {ok:true,coverage:sh.coverage});
+    }
+
     if (sub === "poll" && req.method === "POST") {
       const b = await readBody(req);
       const checkpointPresence=!sh.last_seen || now()-sh.last_seen>=60000;
@@ -641,20 +666,20 @@ async function api(req, res, pathname, query) {
       if (b.available === true && sh.mode === "standby") { /* stays standby until the shaliach taps */ }
       const job = activeJob(sh.id);
       let dispatchChanged=false;
-      if(!job&&sh.mode!=="off"&&shaliachFresh(sh)&&alertState(sh).alerts){
-        Object.values(db.requests).filter(r=>r.status==="open"&&ringLeft(r)>0&&!(r.declined||{})[sh.id]&&km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM).forEach(r=>{
+      if(!job&&sh.mode!=="off"&&alertState(sh).alerts){
+        Object.values(db.requests).filter(r=>r.status==="open"&&ringLeft(r)>0&&!(r.declined||{})[sh.id]&&dispatchDistance(sh,r)!==null).forEach(r=>{
           r.candidates=r.candidates||[];
           if(!r.candidates.includes(sh.id)&&r.candidates.length<RING_MAX){r.candidates.push(sh.id);r.notified=r.candidates.length;dispatchChanged=true;}
         });
       }
       const ringing = Object.values(db.requests)
-        .filter(function (r) { return r.status === "open" && ringLeft(r) > 0 && (r.candidates || []).indexOf(sh.id) >= 0 && !(r.declined && r.declined[sh.id]) && sh.mode !== "off" && !job && shaliachFresh(sh) && alertState(sh).alerts && km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM; })
+        .filter(function (r) { return r.status === "open" && ringLeft(r) > 0 && (r.candidates || []).indexOf(sh.id) >= 0 && !(r.declined && r.declined[sh.id]) && sh.mode !== "off" && !job && dispatchDistance(sh,r)!==null; })
         .map(function (r) { if(!(r.screen_seen||{})[sh.id]){r.screen_seen=r.screen_seen||{};r.screen_seen[sh.id]=now();dispatchChanged=true;}return ringItem(r, sh); });
       const waiting = Object.values(db.requests)
-        .filter(function (r) { return (r.status === "waiting" || (r.status==="open"&&ringLeft(r)===0)) && now()-r.created_at<24*3600000 && !job && sh.mode!=="off" && shaliachFresh(sh) && alertState(sh).alerts && km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM && !(r.declined && r.declined[sh.id]); })
+        .filter(function (r) { return (r.status === "waiting" || (r.status==="open"&&ringLeft(r)===0)) && now()-r.created_at<24*3600000 && !job && sh.mode!=="off" && dispatchDistance(sh,r)!==null && !(r.declined && r.declined[sh.id]); })
         .sort(function (a, b2) { return a.created_at - b2.created_at; }).slice(0, 20)
         .map(function (r) {
-          const k = sh.lat != null ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
+          const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
           return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, age_s: Math.round((now() - r.created_at) / 1000), lang: r.lang || null };
         });
       if(checkpointPresence||dispatchChanged)store.save();
@@ -941,7 +966,7 @@ async function api(req, res, pathname, query) {
       const b=await readBody(req);if(b.confirm!=="DELETE STAND "+b.id)return fail(res,"confirmation",400);
       if(typeof b.id!=="string"||!Object.prototype.hasOwnProperty.call(db.stands||{},b.id))return fail(res,"not_found",404);delete db.stands[b.id];store.save();return json(res,200,{ok:true});
     }
-    if(sub==="dispatch"&&req.method==="GET")return json(res,200,{ok:true,radius_km:RING_RADIUS_KM,shluchim:Object.values(db.shluchim).map(sh=>({id:sh.id,name:sh.name,mode:sh.mode,location_ready:shaliachFresh(sh),push_devices:(sh.push||[]).length,alerts:alertState(sh).alerts,busy:!!activeJob(sh.id)})),requests:Object.values(db.requests).filter(r=>r.status==="open"||r.status==="waiting").map(r=>({id:r.id,status:r.status,candidates:(r.candidates||[]).length,screen_seen:Object.keys(r.screen_seen||{}).length,push_accepted:r.push_accepted||0,push_failed:r.push_failed||0,created_at:r.created_at}))});
+    if(sub==="dispatch"&&req.method==="GET")return json(res,200,{ok:true,radius_km:RING_RADIUS_KM,shluchim:Object.values(db.shluchim).map(sh=>({id:sh.id,name:sh.name,mode:sh.mode,location_ready:shaliachFresh(sh),coverage_ready:coverageValid(sh.coverage),push_devices:(sh.push||[]).length,alerts:alertState(sh).alerts,busy:!!activeJob(sh.id)})),requests:Object.values(db.requests).filter(r=>r.status==="open"||r.status==="waiting").map(r=>({id:r.id,status:r.status,candidates:(r.candidates||[]).length,screen_seen:Object.keys(r.screen_seen||{}).length,push_accepted:r.push_accepted||0,push_failed:r.push_failed||0,created_at:r.created_at}))});
     if(sub==="health" && req.method==="GET")return json(res,200,{ok:true,uptime_seconds:Math.floor(process.uptime()),inflight:inflight,memory_mb:Math.round(process.memoryUsage().rss/1048576),backup:{enabled:remote.ENABLED,pending:remote.health.pending,last_ok:remote.health.last_ok,last_error:remote.health.last_error}});
     if (sub === "announcements" && req.method === "GET") {
       return json(res,200,{ok:true,shluchim_devices:announcements.targets(db,"shluchim").length,all_devices:announcements.targets(db,"all").length,
