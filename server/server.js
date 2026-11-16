@@ -757,8 +757,8 @@ async function api(req, res, pathname, query) {
     }
 
     if (sub === "offline" && req.method === "POST") {
-      // sendBeacon from a closing screen: available -> standby
-      if (sh.mode === "available" && !activeJob(sh.id)) { sh.mode = "standby"; store.save(); }
+      // Legacy clients may still send this on reload/exit. Preserve the explicit
+      // mode choice; the live-map GPS freshness gate handles stale locations.
       return json(res, 200, { ok: true });
     }
 
