@@ -14,7 +14,7 @@ function emptyDb() {
     photos: {},     // id -> photo meta {id, req_id, role, w, h, approved, at, file}
     deletions: [],  // {id, phone, name, role, note, at, done}
     counters: { total_done: 0, by_month: {}, photos_by_month: {} },
-    settings: { announcement: null, stats_visible: false, report_email: null }
+    settings: { announcement: null, stats_visible: false, report_email: null, report_paused: true }
   };
 }
 
@@ -35,7 +35,7 @@ class Store {
     this._dirty = false;
   }
   _applyDefaults() {
-    this.db.settings = Object.assign({ announcement: null, stats_visible: false, report_email: null }, this.db.settings || {});
+    this.db.settings = Object.assign({ announcement: null, stats_visible: false, report_email: null, report_paused: true }, this.db.settings || {});
     if (!this.db.orderers || typeof this.db.orderers !== "object") this.db.orderers = {};
   }
   /* Pull the last remotely-backed-up db (survives redeploys). Remote wins when
