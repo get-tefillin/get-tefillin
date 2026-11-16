@@ -9,8 +9,8 @@
  "id": "/",
  "display": "standalone",
  "orientation": "portrait",
- "background_color": "#0f1f3d",
- "theme_color": "#0f1f3d",
+ "background_color": "#ffffff",
+ "theme_color": "#ffffff",
  "categories": [
   "lifestyle",
   "social"
