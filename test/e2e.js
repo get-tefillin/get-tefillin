@@ -222,7 +222,7 @@ async function main() {
 
     /* orderer registry (admin backup of everyone who ordered) */
     r = await j("POST", "/api/admin/report/test", {}, null, { cookie });
-    check("report test without key is skipped", r.j && r.j.ok === false && r.j.skipped === "no_key", r.j);
+    check("paused report test is blocked", r.j && r.j.ok === false && r.j.skipped === "paused", r.j);
 
     r = await j("GET", "/api/admin/overview", null, null, { cookie });
     check("overview lists registered orderers", r.j && Array.isArray(r.j.orderers) && r.j.orderers.length >= 1 && r.j.orderers.some(function(o){return o.name==="מזמין בדיקה" && o.count===1}) && r.j.stats.orderers >= 1, r.j && r.j.orderers);
