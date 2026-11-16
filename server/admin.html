@@ -83,7 +83,7 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
   <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <label for="rpEmail" style="font-weight:600">מייל לשליחת הדו״ח החודשי:</label>
     <input id="rpEmail" type="email" dir="ltr" placeholder="name@example.com" style="flex:1;min-width:200px;border-radius:10px;border:1px solid #ddd;padding:8px;font:inherit">
-    <button class="act gold" id="rpSave">שמירה</button>
+    <label><input type="checkbox" id="rpPaused" checked> הקפאת שליחת דוחות במייל (הנתונים והכתובת נשמרים)</label><button class="act gold" id="rpSave">שמירה</button><span id="rpState" role="status"></span>
   </div>
   <p class="muted" style="margin-top:6px">הדיווח האוטומטי יחדש לכתובת זו בכל 1 לחודש לאחר חיבור שירות המיילים. ריק = ללא שליחה.</p>
 </section>
@@ -241,9 +241,9 @@ function renderStats(d){
     tb.appendChild(tr)});
 }
 function load(){api("/api/admin/overview").then(render).catch(function(){});api("/api/admin/stats").then(renderStats).catch(function(){})}
-function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible;$("rpEmail").value=j.report_email||"";$("updatesGroupUrl").value=j.updates_group_url||""}).catch(function(){})}
+function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible;$("rpEmail").value=j.report_email||"";$("rpPaused").checked=j.report_paused!==false;$("rpState").textContent=j.report_paused!==false?"שליחת הדוחות מוקפאת":"שליחת הדוחות פעילה";$("updatesGroupUrl").value=j.updates_group_url||""}).catch(function(){})}
 $("updatesGroupSave").onclick=function(){var b=this;b.disabled=true;$("updatesGroupErr").textContent="";api("/api/admin/bulletin",{updates_group_url:$("updatesGroupUrl").value}).then(function(j){b.disabled=false;$("updatesGroupErr").textContent=j.ok?"נשמר. יוצג לשלוחים לאחר רענון.":"לא נשמר. יש להזין קישור https://chat.whatsapp.com/ תקין או להשאיר ריק."}).catch(function(){b.disabled=false;$("updatesGroupErr").textContent="לא נשמר. בדקו חיבור."})};
-$("rpSave").onclick=function(){api("/api/admin/bulletin",{report_email:$("rpEmail").value}).then(function(j){toast(j.ok?"נשמר":(j.code==="bad_email"?"כתובת מייל לא תקינה":"שגיאה"))})};
+$("rpSave").onclick=function(){api("/api/admin/bulletin",{report_email:$("rpEmail").value,report_paused:$("rpPaused").checked}).then(function(j){if(j.ok){$("rpState").textContent=j.report_paused?"שליחת הדוחות מוקפאת":"שליחת הדוחות פעילה"}toast(j.ok?"נשמר":(j.code==="bad_email"?"כתובת מייל לא תקינה":"שגיאה"))})};
 $("blSave").onclick=function(){api("/api/admin/bulletin",{announcement:$("blText").value,stats_visible:$("blStatsOn").checked}).then(function(j){toast(j.ok?"נשמר":"שגיאה")})};
 $("donSave").onclick=function(){$("donErr").textContent="";
   api("/api/admin/donation",{url:$("donUrl").value.trim()}).then(function(j){if(j.ok)toast("נשמר");else $("donErr").textContent="כתובת לא תקינה - חובה שתתחיל ב־https://"});};
