@@ -378,11 +378,12 @@ async function api(req, res, pathname, query) {
       const busy = new Set(Object.values(db.requests).filter(r => r.status === "accepted" || r.status === "arrived").map(r => r.shaliach_id));
       const points = Object.values(db.shluchim).filter(sh => sh.mode === "available" && shaliachFresh(sh) && now() - (sh.loc_at || 0) < 120000 && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
         .map(sh => ({lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2)}));
-      worldSnapshot = {at: now(), points: points};worldResponses.clear();
+      const extent=points.length?points.reduce((b,p)=>[Math.min(b[0],p.lat),Math.min(b[1],p.lng),Math.max(b[2],p.lat),Math.max(b[3],p.lng)],[85,180,-85,-180]):null;
+      worldSnapshot = {at: now(), points: points,extent};worldResponses.clear();
     }
     const cacheKey=z+":"+b.join(",");let result=worldResponses.get(cacheKey);
     if(!result){const clusters=require("./world-map").view(worldSnapshot.points,b,z);
-      result={ok:true,at:worldSnapshot.at,total:worldSnapshot.points.length,clusters:clusters.slice(0,1000),limited:clusters.length>1000,refresh_seconds:15};
+      result={ok:true,at:worldSnapshot.at,total:worldSnapshot.points.length,clusters:clusters.slice(0,1000),limited:clusters.length>1000,refresh_seconds:15,extent:worldSnapshot.extent};
       if(worldResponses.size>=128)worldResponses.delete(worldResponses.keys().next().value);worldResponses.set(cacheKey,result);
     }
     return json(res,200,result,{"cache-control":"public, max-age=5, s-maxage=10"});
