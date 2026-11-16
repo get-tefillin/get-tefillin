@@ -60,6 +60,10 @@ var SCREENS=["s-intro","s-home","s-locpick","s-match","s-none","s-waiting","s-ro
 var cur=null;
 function show(id){cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
 var mode="user";
+$("worldMapBtn").onclick=function(){ $("worldMapOverlay").hidden=false; $("worldMapFrame").src="/map/"; };
+function closeWorldMap(){ $("worldMapOverlay").hidden=true; $("worldMapFrame").removeAttribute("src"); }
+window.addEventListener("message",function(e){if(e.origin===location.origin&&e.source===$("worldMapFrame").contentWindow&&e.data==="close-world-map")closeWorldMap()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeWorldMap()});
 function setModeTabs(m){mode=m;$("tabUser").classList.toggle("on",m==="user");$("tabVol").classList.toggle("on",m==="vol");$("tabUser").setAttribute("aria-selected",m==="user");$("tabVol").setAttribute("aria-selected",m==="vol")}
 
 /* =========================================================
@@ -492,6 +496,7 @@ function vPoll(){
   })
 }
 function showRing(r){
+  closeWorldMap();
   var isNew=!V.ringing||V.ringing.id!==r.id;V.ringing=r;
   $("rqName").textContent=r.first_name;(function(){var i=initialOf(r.first_name),av=$("rqAvatar");if(i){av.className="avatar initial big-av";av.textContent=i}else{av.className="avatar big-av";av.innerHTML=PERSON}})();$("rqDist").textContent=r.km!=null?fmtKm(r.km):"";$("rqEta").textContent=r.eta_min!=null?t("eta_approx",{n:r.eta_min})+" · "+t(((V.data&&V.data.me)||{}).transport||"foot"):"";
   $("rqLang").textContent=r.lang?t("req_lang",{lang:langName(r.lang)}):"";

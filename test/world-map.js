@@ -1,0 +1,10 @@
+const assert = require('assert');
+const view = require('../server/world-map').view;
+assert.deepStrictEqual(view([{lat:32,lng:35}],[-180,-85,180,85],2),[{lat:32,lng:35,count:1}]);
+assert.equal(view([{lat:32,lng:35}],[-20,-10,20,10],2).length,0);
+assert.equal(view([{lat:0,lng:179},{lat:0,lng:-179}],[170,-10,-170,10],5).reduce((a,c)=>a+c.count,0),2);
+const ps=Array.from({length:100000},(_,i)=>({lat:(i%160)-80,lng:(i%360)-180}));
+const c=view(ps,[-180,-85,180,85],2);
+assert.equal(c.reduce((a,c)=>a+c.count,0),100000);
+assert(c.length<1000);
+console.log('PASS: viewport, antimeridian, 100K location clustering. Not a concurrent-user load test.');

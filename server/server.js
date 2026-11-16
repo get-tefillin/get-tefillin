@@ -316,6 +316,21 @@ async function api(req, res, pathname, query) {
   /* GET /api/push/key */
   if (pathname === "/api/push/key" && req.method === "GET") return json(res, 200, { key: CFG.vapid.pub });
 
+  /* GET /api/world-map: public availability, no identity/contact/precise location. */
+  if (pathname === "/api/world-map" && req.method === "GET") {
+    const b = String(query.bounds || "-180,-85,180,85").split(",").map(Number);
+    const z = Math.max(1, Math.min(18, Math.floor(Number(query.zoom) || 2)));
+    if (b.length !== 4 || b.some(x => !Number.isFinite(x)) || b[0] < -180 || b[0] > 180 || b[2] < -180 || b[2] > 180 || b[1] < -90 || b[3] > 90 || b[1] > b[3]) return fail(res, "bounds", 400);
+    if (!worldSnapshot || now() - worldSnapshot.at > 5000) {
+      const busy = new Set(Object.values(db.requests).filter(r => r.status === "accepted" || r.status === "arrived").map(r => r.shaliach_id));
+      const points = Object.values(db.shluchim).filter(sh => sh.mode !== "off" && shaliachFresh(sh) && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
+        .map(sh => ({lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2)}));
+      worldSnapshot = {at: now(), points: points};
+    }
+    const clusters = require("./world-map").view(worldSnapshot.points, b, z);
+    return json(res, 200, {ok: true, at: worldSnapshot.at, total: worldSnapshot.points.length, clusters: clusters.slice(0, 1000), limited: clusters.length > 1000, refresh_seconds: 15}, {"cache-control":"public, max-age=5, s-maxage=10"});
+  }
+
   /* GET /api/nearby */
   if (pathname === "/api/nearby" && req.method === "GET") {
     const lat = parseFloat(query.lat), lng = parseFloat(query.lng);
@@ -919,6 +934,8 @@ async function api(req, res, pathname, query) {
 
   return fail(res, "not_found", 404);
 }
+
+let worldSnapshot = null;
 
 /* ---------------- static files ---------------- */
 const MIME = {

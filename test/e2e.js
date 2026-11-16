@@ -46,6 +46,11 @@ async function main() {
     const cfg = JSON.parse(fs.readFileSync(path.join(root, "config.json"), "utf8"));
     check("config.json created with admin code", typeof cfg.admin_code === "string" && cfg.admin_code.length >= 8);
 
+    const world = await j("GET", "/api/world-map?zoom=2");
+    check("world map available without personal data", world.j.ok && Array.isArray(world.j.clusters) && !JSON.stringify(world.j).includes("token"));
+    const badWorld = await j("GET", "/api/world-map?bounds=nan,0,1,2");
+    check("world map rejects invalid bounds", badWorld.status === 400);
+
     /* static shell */
     const home = await fetch(BASE + "/");
     check("GET / serves the app", home.status === 200 && (await home.text()).indexOf("Get Tefillin") >= 0 || home.status === 200);
