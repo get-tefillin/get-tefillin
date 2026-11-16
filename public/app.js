@@ -47,7 +47,8 @@ var radarIcon=divIcon('<div class="radar-pin"><i></i><i></i><i></i></div>',24);
 function pinIcon(name,sel){return L.divIcon({className:"",html:'<div class="pin'+(sel?' sel':'')+'">'+PERSON+'</div><div class="pin-label">'+esc(name)+'</div>',iconSize:[40,40],iconAnchor:[20,20]})}
 function reqIcon(){return L.divIcon({className:"",html:'<div class="rpin">'+PERSON+'</div><div class="pin-label">'+esc(t("requester_pin"))+'</div>',iconSize:[40,40],iconAnchor:[20,20]})}
 var layer=L.layerGroup().addTo(map);
-function sheetH(){var s=document.querySelector(".sheet:not([hidden])");return s?s.offsetHeight:0}
+var activeMap=window.TN_ACTIVE_MAP(map),mapOnly=false;
+function sheetH(){if(mapOnly)return 95;var s=document.querySelector(".sheet:not([hidden])");return s?s.offsetHeight:0}
 function topH(){var t=$("topbar");return t.hidden?0:t.offsetHeight}
 function fit(points,maxZoom){
   points=points.filter(Boolean);if(!points.length)return;
@@ -58,7 +59,10 @@ function fit(points,maxZoom){
 /* ---------- screens ---------- */
 var SCREENS=["s-intro","s-home","s-locpick","s-match","s-none","s-waiting","s-route","s-arrived","s-done","s-vreg","s-vdash","s-vhours","s-vreq","s-vgo","s-vdone","s-vthanks"];
 var cur=null;
-function show(id){cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
+function show(id){if(mapOnly&&id!==cur)setMapOnly(false);cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
+function canMapOnly(){return cur==='s-home'||cur==='s-vdash'}
+function setMapOnly(on){on=!!on&&canMapOnly();mapOnly=on;$('app').classList.toggle('map-only',on);$('activeMapControls').hidden=!on;if(on){layer.clearLayers();document.activeElement&&document.activeElement.blur()}activeMap.show(on);sheetSync();setTimeout(function(){map.invalidateSize();if(!on){if(cur==='s-home')drawHome();else if(cur==='s-vdash')drawVolMap(false)}},80)}
+$('restoreCard').onclick=function(){setMapOnly(false)};$('allActiveVols').onclick=function(){activeMap.all()};
 var mode="user";
 $("worldMapBtn").onclick=function(){ $("worldMapOverlay").hidden=false; $("worldMapFrame").src="/map/"; };
 function closeWorldMap(){ $("worldMapOverlay").hidden=true; $("worldMapFrame").removeAttribute("src"); }
@@ -93,6 +97,7 @@ function loadStands(force){if(!U.pos||(!force&&Date.now()-standLast<60000))retur
 function setFindStand(on){FIND_STAND=on;$('findVolunteer').classList.toggle('on',!on);$('findStand').classList.toggle('on',on);$('findVolunteer').setAttribute('aria-pressed',!on);$('findStand').setAttribute('aria-pressed',on);$('standPanel').hidden=!on;$('orderForm').hidden=on;$('availTitle').parentNode.hidden=on;if(on){loadStands(true);renderStands()}drawHome()}
 $('findVolunteer').onclick=function(){setFindStand(false)};$('findStand').onclick=function(){setFindStand(true)};
 function drawHome(){
+  if(mapOnly)return;
   layer.clearLayers();
   if(U.pos)L.marker(U.pos,{icon:meIcon,zIndexOffset:500}).addTo(layer);
   if(FIND_STAND){homeStands.forEach(function(s){L.marker([s.lat,s.lng],{icon:divIcon('<div style="background:#b97a16;color:white;border:3px solid white;border-radius:10px;text-align:center;font-size:22px">▣</div>',32)}).bindTooltip(s.name).addTo(layer)});return}
@@ -335,6 +340,7 @@ function renderDash(){
 function ago(s){return s<90?t("ago_1"):s<3600?t("ago_min",{n:Math.round(s/60)}):t("ago_h",{n:Math.round(s/3600)})}
 function gpsTxt(){return t("loc_shared")+(V.acc?" "+t("acc",{n:Math.round(V.acc)}):"")}
 function drawVolMap(fitJob){
+  if(mapOnly)return;
   layer.clearLayers();V.myMarker=null;V.jobMarker=null;
   if(V.pos)V.myMarker=L.marker(V.pos,{icon:pinIcon(t("you"),true),zIndexOffset:800}).addTo(layer);
   if(V.job){V.jobMarker=L.marker([V.job.lat,V.job.lng],{icon:reqIcon(),zIndexOffset:700}).addTo(layer);
@@ -861,7 +867,7 @@ $("whoEdit").onclick=function(){whoShow(true);$("reqName").focus()};
 
 /* bottom sheet: drag the handle down to peek at the map, up (or tap) to bring it back */
 function visSheet(){return document.querySelector(".sheet:not([hidden])")}
-function sheetSync(){var s=visSheet(),h=s&&!$("topbar").hidden?(s.classList.contains("peek")?132:s.offsetHeight):0;$("app").style.setProperty("--sheet-h",h+"px")}
+function sheetSync(){var s=visSheet(),h=mapOnly?95:s&&!$("topbar").hidden?(s.classList.contains("peek")?132:s.offsetHeight):0;$("app").style.setProperty("--sheet-h",h+"px")}
 if(window.ResizeObserver){var ro=new ResizeObserver(function(){sheetSync()});SCREENS.forEach(function(id){ro.observe($(id))})}
 window.addEventListener("resize",sheetSync);
 Array.prototype.forEach.call(document.querySelectorAll(".sheet .grab"),function(g){
@@ -869,10 +875,17 @@ Array.prototype.forEach.call(document.querySelectorAll(".sheet .grab"),function(
   g.addEventListener("pointerdown",function(e){y0=e.clientY;dy=0;moved=false;sh.classList.add("dragging");try{g.setPointerCapture(e.pointerId)}catch(x){}});
   g.addEventListener("pointermove",function(e){if(y0==null)return;dy=e.clientY-y0;if(Math.abs(dy)>4)moved=true;var base=sh.classList.contains("peek")?sh.offsetHeight-132:0;var y=Math.max(0,Math.min(sh.offsetHeight-90,base+dy));sh.style.transform="translateY("+y+"px)"});
   function end(){if(y0==null)return;y0=null;sh.classList.remove("dragging");sh.style.transform="";
+    if(canMapOnly()&&(!moved||dy>60)){setMapOnly(true);return}
     if(!moved)sh.classList.toggle("peek");else if(dy>60)sh.classList.add("peek");else if(dy<-40)sh.classList.remove("peek");
     sheetSync()}
   g.addEventListener("pointerup",end);g.addEventListener("pointercancel",end);
-  g.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();sh.classList.toggle("peek");sheetSync()}});
+  g.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();if(canMapOnly())setMapOnly(true);else{sh.classList.toggle("peek");sheetSync()}}});
+});
+['s-home','s-vdash'].forEach(function(id){var sh=$(id),button=document.createElement('button');button.type='button';button.className='map-expand';button.textContent='⌄ '+stText('החליקו מטה להצגת כל השלוחים במפה','Swipe down to see active volunteers');button.onclick=function(){setMapOnly(true)};sh.querySelector('.grab').after(button);var start=null;
+sh.addEventListener('touchstart',function(e){if(e.touches.length===1&&!e.target.closest('input,textarea,select,button,a')&&sh.scrollTop<=0)start={x:e.touches[0].clientX,y:e.touches[0].clientY};else start=null},{passive:true});
+sh.addEventListener('touchmove',function(e){if(!start||!canMapOnly())return;var t=e.touches[0];if(t.clientY-start.y>75&&Math.abs(t.clientX-start.x)<60){start=null;setMapOnly(true)}},{passive:true});
+sh.addEventListener('touchend',function(){start=null},{passive:true});
+sh.addEventListener('wheel',function(e){if(!canMapOnly()||mapOnly||e.target.closest('input,textarea,select'))return;if(e.deltaY>40&&sh.scrollTop+sh.clientHeight>=sh.scrollHeight-3){e.preventDefault();setMapOnly(true)}},{passive:false});
 });
 /* recenter */
 $("locateBtn").onclick=function(){
