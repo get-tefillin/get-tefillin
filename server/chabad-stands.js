@@ -13,7 +13,7 @@ function build(raw,syncedAt){
   if(typeof lat!=='number'||typeof lng!=='number'||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<29||lat>34||lng<34||lng>36.5){excluded.push({name:text(r.title),address:text(r.address),lat,lng,reason:'coordinates_outside_israel_review_required'});continue}
   const name=text(r.title),address=text(r.address);if(name.length<2||address.length<3){excluded.push({name,address,reason:'missing_name_or_address'});continue}
   if(address!==String(r.address||'').trim())cleanedAddresses++;
-  const key=[name,address,lat,lng].join('|');if(seen.has(key)){duplicates++;continue}seen.add(key);
+  const key=[name,address,lat,lng].join('|');if(seen.has(key)){duplicates++;const existing=records.find(s=>[s.name,s.address,s.lat,s.lng].join('|')===key);const alternate=String(r.phone||'').replace(/[^\d+]/g,'');if(existing&&/^\+?\d{7,15}$/.test(alternate)&&alternate!==existing.phone&&!existing.note.includes(alternate))existing.note=(existing.note?existing.note+' · ':'')+'טלפון נוסף במקור: '+alternate;continue}seen.add(key);
   const phone=String(r.phone||'').replace(/[^\d+]/g,'');const validPhone=/^\+?\d{7,15}$/.test(phone)?phone:'';if(!validPhone)missingPhones++;
   const id=crypto.createHash('sha256').update('chabad-israel|'+key).digest('hex').slice(0,24);
   records.push({id,name,address,lat,lng,note:text(r.description).replace(/^\.$/,''),phone:validPhone,tz:'Asia/Jerusalem',days:Array(7).fill(null),always:false,hours_unknown:true,active:true,source:'chabad-israel',source_url:SOURCE,source_synced_at:syncedAt});
