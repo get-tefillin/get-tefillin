@@ -158,6 +158,7 @@ function shaliachFresh(sh) {
   return Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
 }
 /* A coverage area is an explicit private opt-in, never a live-map location. */
+function validGroupInvite(u) { try { const x=new URL(u);return x.protocol==="https:" && x.hostname==="chat.whatsapp.com" && !x.username && !x.password && !x.port && /^\/[a-zA-Z0-9]{10,80}\/?$/.test(x.pathname) && u.length<=500; } catch(e){return false} }
 function coverageValid(c) {
   return !!(c && c.enabled === true && Number.isFinite(c.lat) && Math.abs(c.lat) <= 90 && Number.isFinite(c.lng) && Math.abs(c.lng) <= 180 && Number.isFinite(c.radius_km) && c.radius_km >= 1 && c.radius_km <= 100 && typeof c.label === "string" && c.label.trim());
 }
@@ -241,6 +242,7 @@ function meView(sh) {
   const a = alertState(sh);
   return {
     name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [],
+    updates_group_url: db.settings.updates_group_url || null,
     mode: sh.mode, hours: sh.hours || { on: false, days: [null, null, null, null, null, null, null] }, tz: sh.tz || "Asia/Jerusalem",
     alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined,
     coverage: coverageValid(sh.coverage) ? sh.coverage : null, location_ready: shaliachFresh(sh),location_age_s:sh.loc_at?Math.round((now()-sh.loc_at)/1000):null,push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
@@ -851,10 +853,15 @@ async function api(req, res, pathname, query) {
     /* Admin: get/set the public announcement + stats visibility */
     if (sub === "bulletin" && req.method === "GET") {
       const st = db.settings || {};
-      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible, report_email: st.report_email || null });
+      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible, report_email: st.report_email || null, updates_group_url:st.updates_group_url || null });
     }
     if (sub === "bulletin" && req.method === "POST") {
       const b = await readBody(req);
+      if (typeof b.updates_group_url === "string") {
+        const u=b.updates_group_url.trim();
+        if(u && !validGroupInvite(u))return fail(res,"group_url",400);
+        db.settings.updates_group_url=u||null;
+      }
       if (typeof b.announcement === "string") {
         const text = b.announcement.trim().slice(0, 500);
         db.settings.announcement = text || null;
@@ -866,7 +873,7 @@ async function api(req, res, pathname, query) {
         db.settings.report_email = em || null;
       }
       store.save();
-      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible, report_email: db.settings.report_email });
+      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible, report_email: db.settings.report_email,updates_group_url:db.settings.updates_group_url||null });
     }
 
     if (sub === "overview" && req.method === "GET") {
