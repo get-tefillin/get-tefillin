@@ -91,6 +91,11 @@ async function main() {
     check("mode available ok", r.j && r.j.ok === true, r.j);
     check("mode response carries merge keys", r.j && "hours" in r.j && "push_devices" in r.j, r.j);
 
+    await new Promise(resolve => setTimeout(resolve, 5100));
+    const availableWorld = await j("GET", "/api/world-map?zoom=16");
+    check("world map shows available shaliach at approximate location", availableWorld.j.total === 1 && availableWorld.j.clusters[0].lat === 32.08 && availableWorld.j.clusters[0].lng === 34.85, availableWorld.j);
+    check("world map never exposes contact, name, token or id", !/שליח|token|0501112233/.test(JSON.stringify(availableWorld.j)));
+
     /* shaliach sets his own photo */
     const shJpeg = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.alloc(300, 7), Buffer.from([0xff, 0xd9])]);
     let spr = await fetch(BASE + "/api/shaliach/photo", { method: "POST", headers: { "content-type": "image/jpeg", "x-token": shTok }, body: shJpeg });
