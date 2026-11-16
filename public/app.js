@@ -184,9 +184,10 @@ $("orderForm").onsubmit=function(e){e.preventDefault();
 };
 function showMatching(notified,left){
   show("s-match");layer.clearLayers();if(U.pos){L.marker(U.pos,{icon:radarIcon,interactive:false,keyboard:false}).addTo(layer);L.marker(U.pos,{icon:meIcon}).addTo(layer)}fit([U.pos],15);
-  U.notified=notified;$("matchMsg").textContent=notified?(notified===1?t("sent_one"):t("sent_n",{n:notified})):t("sending_req");
+  U.notified=notified;dispatchMessage({notified:notified});
   setMatchTimer(left);
 }
+function dispatchMessage(j){var he=LANG==='he'||LANG==='yi',n=j.notified||0,seen=j.screen_seen||0,push=j.push_accepted||0;$('matchMsg').textContent=seen?(he?'הבקשה הוצגה במסך של '+seen+' שלוחים. ממתינים לאישור.':'Request appeared on '+seen+' volunteer screens. Waiting for acceptance.'):(push?(he?'שירות ההתראות קיבל '+push+' התראות. טרם התקבל אישור משליח.':'Push service accepted '+push+' alerts. No volunteer has accepted yet.'):(n?(he?'נמצאו '+n+' שלוחים מתאימים. עדיין אין אישור שהבקשה הוצגה להם.':n+' eligible volunteers found. No screen receipt yet.'):(he?'הבקשה נשמרה, אך אין כרגע שליח עם מיקום עדכני באזור. לא נשלחה התראה לטלפון.':'Request saved, but no volunteer with a recent location is eligible nearby. No phone alert was sent.')))}
 function setMatchTimer(left){var el=$("matchTimer");el.style.transition="none";el.style.width=Math.max(0,left/60*100)+"%";void el.offsetWidth;el.style.transition="width "+left+"s linear";el.style.width="0%"}
 function startReqPoll(){stopReqPoll();clearInterval(U.nearT);pollReq();U.poll=setInterval(pollReq,3000);startReqWatch()}
 function stopReqPoll(){clearInterval(U.poll);U.poll=null;if(U.watch!=null&&navigator.geolocation){navigator.geolocation.clearWatch(U.watch);U.watch=null}}
@@ -202,6 +203,7 @@ function pollReq(){
     if(!j.ok){if(j._status===404){endRequest();goHome()}return}
     if(!U.pos)U.pos=[j.lat,j.lng];
     var st=j.status,prev=U.lastStatus;U.lastStatus=st;histSet(rq.id,st,j.shaliach?firstOf(j.shaliach):null);
+    if(st==="open")dispatchMessage(j);
     if(st==="open"){if(j.ring_left_s>0){if(cur!=="s-match"){showMatching(j.notified,j.ring_left_s)}}else if(cur!=="s-none"){show("s-none");layer.clearLayers();L.marker(U.pos,{icon:meIcon}).addTo(layer);fit([U.pos],15)}}
     else if(st==="waiting"){if(cur!=="s-waiting"){show("s-waiting");layer.clearLayers();L.marker(U.pos,{icon:meIcon}).addTo(layer);fit([U.pos],15)}}
     U.lastJ=j;
@@ -346,7 +348,7 @@ function ensureWatch(){
   if(V.watchId!=null)return;
   V.watchId=navigator.geolocation.watchPosition(function(p){V.pos=[p.coords.latitude,p.coords.longitude];V.acc=p.coords.accuracy;V.posAt=Date.now();
       if(V.myMarker)V.myMarker.setLatLng(V.pos);else if(mode==="vol")drawVolMap();
-      if(cur==="s-vdash")$("gpsLine").textContent=gpsTxt()},
+      if(cur==="s-vdash")$("gpsLine").textContent=gpsTxt();vPoll()},
     function(e){if(e.code===1){toast(t("no_perm_calls"),3500);$("gpsLine").textContent=t("no_perm_line")}},
     {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
@@ -386,6 +388,9 @@ function renderModeUI(m){
   Array.prototype.forEach.call(document.querySelectorAll("#modeSeg button"),function(b){b.setAttribute("aria-checked",b.getAttribute("data-mode")===V.mode?"true":"false")});
   $("modeDesc").textContent=t(V.mode==="off"?"desc_off":V.mode==="standby"?"desc_standby":"desc_avail");$("statusCard").setAttribute("data-mode",V.mode);$("scTitle").textContent=t(V.mode==="off"?"sc_off":V.mode==="standby"?"sc_standby":"sc_avail");
   $("hoursSum").textContent=hoursSummary(m.hours);
+  var readiness=$('dispatchReady');if(!readiness){readiness=document.createElement('p');readiness.id='dispatchReady';readiness.style.cssText='font-size:13px;padding:12px;border:1px solid #d5a137;border-radius:10px;white-space:pre-line';$('modeDesc').after(readiness)}
+  readiness.textContent=stText('חשבון זה שייך לאתר החדש בלבד. רישום באתר הישן לא מפעיל התראות כאן.','This account belongs to this new site. Registration on the old site does not enable alerts here.')+'\n'+(m.location_ready?stText('✓ מיקום עדכני קיים','✓ Recent location available'):stText('⚠ אין מיקום עדכני. יש לאשר מיקום במכשיר ולבחור זמין כדי לקבל קריאות קרובות.','⚠ No recent location. Allow location and select Available to receive nearby requests.'))+'\n'+(V.pushState==='on'&&m.push_devices>0?stText('✓ התראות רקע רשומות במכשיר זה (המסירה תלויה במכשיר)','✓ Background notifications registered on this device (delivery depends on the device)'):stText('⚠ ללא אישור התראות במכשיר זה, הקריאה מופיעה רק כשהאתר פתוח ופעיל.','⚠ Without notification permission on this device, requests appear only while the page is open and active.'));
+
   var on=V.mode!=="off",line=$("alertLine"),txt="",cls="",tap=false;
   var pushOn=V.pushState==="on"&&(m.push_devices==null||m.push_devices>0);
   if(on){
@@ -698,7 +703,7 @@ function refreshScreen(){
   setDonate();
   if(cur==="s-home"){locLabel();renderNearby();whoSync();wallSub();loadBulletin();$("totalLine").textContent=U.totalDone?t("total_line",{n:U.totalDone}):""}
   else if(cur==="s-locpick"){if(!U.pickNote)$("locPickNote").textContent=t("locpick_note")}
-  else if(cur==="s-match"){$("matchMsg").textContent=U.notified?(U.notified===1?t("sent_one"):t("sent_n",{n:U.notified})):t("sending_req")}
+  else if(cur==="s-match"){dispatchMessage(U.lastJ||{notified:U.notified})}
   else if(cur==="s-route"&&U.lastJ){U.relang=true;renderRoute(U.lastJ)}
   else if(cur==="s-arrived"&&U.lastJ&&U.lastJ.shaliach){renderArrived(U.lastJ)}
   else if(cur==="s-vreg"){regTexts()}
