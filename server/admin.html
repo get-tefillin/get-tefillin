@@ -51,6 +51,7 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
 </header>
 
 <div class="cards" id="cards"></div>
+<section><h2>קבוצת עדכונים לשלוחים בוואטסאפ</h2><p class="muted">הכפתור יוצג באזור השליח בלבד. שדה ריק מסתיר אותו. הקישור אינו מצרף אף אחד אוטומטית.</p><label for="updatesGroupUrl">קישור הזמנה לקבוצת וואטסאפ</label><input type="url" id="updatesGroupUrl" dir="ltr" placeholder="https://chat.whatsapp.com/..."><button id="updatesGroupSave" class="act gold" style="margin-top:8px">שמירת קישור הקבוצה</button><p class="err" id="updatesGroupErr" role="status"></p></section>
 <section><h2>דוכני תפילין קבועים</h2><p class="muted">מקום שאפשר להגיע אליו עצמאית, גם כשאין שליח. רק דוכן המסומן פעיל מתפרסם. פתוח/סגור מחושב לפי השעות ואזור הזמן שהוגדרו; יש לוודא שהפרטים נכונים. פרסום כתובת דורש רשות מבעל המקום.</p><button id="newStand" class="act gold">הוספת דוכן</button><div id="standList"></div>
 <div id="standEditor" hidden style="border:1px solid #ddd;padding:16px;margin-top:10px">
 <label>שם המקום<input type="text" id="standName" maxlength="100" style="width:100%"></label>
@@ -234,7 +235,8 @@ function renderStats(d){
     tb.appendChild(tr)});
 }
 function load(){api("/api/admin/overview").then(render).catch(function(){});api("/api/admin/stats").then(renderStats).catch(function(){})}
-function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible;$("rpEmail").value=j.report_email||""}).catch(function(){})}
+function loadBulletin(){api("/api/admin/bulletin").then(function(j){if(!j.ok)return;$("blText").value=j.announcement||"";$("blStatsOn").checked=!!j.stats_visible;$("rpEmail").value=j.report_email||"";$("updatesGroupUrl").value=j.updates_group_url||""}).catch(function(){})}
+$("updatesGroupSave").onclick=function(){var b=this;b.disabled=true;$("updatesGroupErr").textContent="";api("/api/admin/bulletin",{updates_group_url:$("updatesGroupUrl").value}).then(function(j){b.disabled=false;$("updatesGroupErr").textContent=j.ok?"נשמר. יוצג לשלוחים לאחר רענון.":"לא נשמר. יש להזין קישור https://chat.whatsapp.com/ תקין או להשאיר ריק."}).catch(function(){b.disabled=false;$("updatesGroupErr").textContent="לא נשמר. בדקו חיבור."})};
 $("rpSave").onclick=function(){api("/api/admin/bulletin",{report_email:$("rpEmail").value}).then(function(j){toast(j.ok?"נשמר":(j.code==="bad_email"?"כתובת מייל לא תקינה":"שגיאה"))})};
 $("blSave").onclick=function(){api("/api/admin/bulletin",{announcement:$("blText").value,stats_visible:$("blStatsOn").checked}).then(function(j){toast(j.ok?"נשמר":"שגיאה")})};
 $("donSave").onclick=function(){$("donErr").textContent="";
