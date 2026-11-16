@@ -351,12 +351,16 @@ function drawVolMap(fitJob){
 
 /* availability */
 Array.prototype.forEach.call(document.querySelectorAll("#modeSeg button"),function(b){b.onclick=function(){unlockAudio();setMode(b.getAttribute("data-mode"))}});
+var freshFixPending=false,freshFixAttempt=0;
+function acceptVolunteerFix(p){V.pos=[p.coords.latitude,p.coords.longitude];V.acc=p.coords.accuracy;V.posAt=Date.now();if(V.myMarker)V.myMarker.setLatLng(V.pos);else if(mode==="vol")drawVolMap();if(cur==="s-vdash")$("gpsLine").textContent=gpsTxt()}
+function refreshVolunteerFix(){
+ if(document.hidden||!V.me||(V.mode==="off"&&!V.job)||!navigator.geolocation||freshFixPending||Date.now()-V.posAt<45000||Date.now()-freshFixAttempt<30000)return;
+ freshFixPending=true;freshFixAttempt=Date.now();navigator.geolocation.getCurrentPosition(function(p){freshFixPending=false;acceptVolunteerFix(p);vPoll()},function(){freshFixPending=false},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+}
 function ensureWatch(){
   if(!navigator.geolocation){toast(t("no_geo"));return}
   if(V.watchId!=null)return;
-  V.watchId=navigator.geolocation.watchPosition(function(p){V.pos=[p.coords.latitude,p.coords.longitude];V.acc=p.coords.accuracy;V.posAt=Date.now();
-      if(V.myMarker)V.myMarker.setLatLng(V.pos);else if(mode==="vol")drawVolMap();
-      if(cur==="s-vdash")$("gpsLine").textContent=gpsTxt();vPoll()},
+  V.watchId=navigator.geolocation.watchPosition(function(p){acceptVolunteerFix(p);vPoll()},
     function(e){if(e.code===1){toast(stText("אין הרשאת מיקום חי. אפשר להגדיר אזור פעילות קבוע.","No live location permission. You can set a fixed coverage area."),3500);$("gpsLine").textContent=stText("ללא מיקום חי. אזור קבוע פועל רק לאחר הגדרה ואישור התראות.","No live location. Fixed coverage requires setup and notification permission.")}},
     {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
@@ -399,6 +403,9 @@ function renderModeUI(m){
   var readiness=$('dispatchReady');if(!readiness){readiness=document.createElement('p');readiness.id='dispatchReady';readiness.style.cssText='font-size:13px;padding:12px;border:1px solid #d5a137;border-radius:10px;white-space:pre-line';$('modeDesc').after(readiness)}
   readiness.textContent=stText('חשבון זה שייך לאתר החדש בלבד. רישום באתר הישן לא מפעיל התראות כאן.','This account belongs to this new site. Registration on the old site does not enable alerts here.')+'\n'+(m.coverage?stText('✓ אזור פעילות קבוע פעיל: '+m.coverage.label+' · '+m.coverage.radius_km+' ק״מ (ללא צורך במיקום עדכני)','✓ Fixed coverage enabled: '+m.coverage.label+' · '+m.coverage.radius_km+' km (no recent location needed)'):m.location_ready?stText('✓ מיקום עדכני קיים','✓ Recent location available'):stText('⚠ אין מיקום עדכני. יש לאשר מיקום או להגדיר אזור פעילות קבוע כדי לקבל קריאות.','⚠ No recent location. Allow location or set a fixed coverage area to receive requests.'))+'\n'+(V.pushState==='on'&&m.push_devices>0?stText('✓ התראות רקע רשומות במכשיר זה (המסירה תלויה במכשיר)','✓ Background notifications registered on this device (delivery depends on the device)'):stText('⚠ ללא אישור התראות במכשיר זה, הקריאה מופיעה רק כשהאתר פתוח ופעיל.','⚠ Without notification permission on this device, requests appear only while the page is open and active.'));
 
+  var mapReady=$('liveMapReady');if(!mapReady){mapReady=document.createElement('p');mapReady.id='liveMapReady';mapReady.style.cssText='font-size:13px;line-height:1.6;padding:10px;background:#eef5ff;border-radius:10px';$('dispatchReady').after(mapReady)}
+  var live=V.posAt&&Date.now()-V.posAt<120000;
+  mapReady.textContent=V.mode!=='available'?stText('כדי להופיע במפה החיה בחרו "זמין" ואשרו מיקום חי. מצב "כונן" אינו מופיע במפה.','To appear on the live map, choose Available and allow live location. Standby is not shown.'):!live?stText('ממתין למיקום חי עדכני כדי להציג אותך במפה. אשרו גישה למיקום והשאירו את האפליקציה פתוחה.','Waiting for a fresh GPS fix to show you on the map. Allow location and keep the app open.'):!m.alerts?stText('כרגע אינך מופיע במפה בגלל שעות ההתראות שהוגדרו.','You are not shown now because your notification hours are inactive.'):stText('המיקום החי שלך כשיר להצגה מקורבת במפה, כל עוד אינך מטפל בקריאה. החליקו את הכרטיס מטה כדי לראות את כולם.','Your fresh location is eligible for the approximate live map while not handling a request. Swipe the card down to see everyone.');
   renderCoverage(m);
   var on=V.mode!=="off",line=$("alertLine"),txt="",cls="",tap=false;
   var pushOn=V.pushState==="on"&&(m.push_devices==null||m.push_devices>0);
@@ -537,6 +544,7 @@ function stopVPoll(){clearInterval(V.poll);V.poll=null}
 function vPoll(){
   if(document.hidden&&!V.job)return Promise.resolve();
   if(!V.me)return Promise.resolve();
+  refreshVolunteerFix();
   var body={v:6,available:V.avail||!!V.job,lang:LANG};
   if((V.mode!=="off"||V.job)&&V.pos&&Date.now()-V.posAt<60000){body.lat=V.pos[0];body.lng=V.pos[1];body.acc=V.acc}
   return api("POST","/api/shaliach/poll",body,V.me.token).then(function(j){
@@ -599,7 +607,8 @@ function stopRing(){clearInterval(V.ringT);V.ringT=null}
 function requestWake(){try{if("wakeLock" in navigator&&!V.wake)navigator.wakeLock.request("screen").then(function(w){V.wake=w;w.addEventListener("release",function(){V.wake=null})}).catch(function(){})}catch(e){}}
 function releaseWake(){try{V.wake&&V.wake.release()}catch(e){}V.wake=null}
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"){if(V.avail)requestWake();if(V.mode!=="off"||V.job)vPoll();if(U.req)pollReq()}});
-window.addEventListener("pagehide",function(){if(V.me&&V.avail&&!V.job&&navigator.sendBeacon){try{navigator.sendBeacon("/api/shaliach/offline",new Blob([JSON.stringify({token:V.me.token})],{type:"text/plain"}))}catch(e){}}});
+// Availability is an explicit user choice. Leaving/reloading must not silently change it.
+// GPS freshness still gates all public live-map points.
 
 
 /* =========================================================
