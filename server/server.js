@@ -323,7 +323,7 @@ async function api(req, res, pathname, query) {
     if (b.length !== 4 || b.some(x => !Number.isFinite(x)) || b[0] < -180 || b[0] > 180 || b[2] < -180 || b[2] > 180 || b[1] < -90 || b[3] > 90 || b[1] > b[3]) return fail(res, "bounds", 400);
     if (!worldSnapshot || now() - worldSnapshot.at > 5000) {
       const busy = new Set(Object.values(db.requests).filter(r => r.status === "accepted" || r.status === "arrived").map(r => r.shaliach_id));
-      const points = Object.values(db.shluchim).filter(sh => sh.mode !== "off" && shaliachFresh(sh) && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
+      const points = Object.values(db.shluchim).filter(sh => sh.mode === "available" && shaliachFresh(sh) && now() - (sh.loc_at || 0) < 120000 && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
         .map(sh => ({lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2)}));
       worldSnapshot = {at: now(), points: points};
     }
