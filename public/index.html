@@ -5,43 +5,49 @@
 <script>/* carries saved app state over from the old address (tefillin-now) once */(function(){var h=location.hash;if(h.indexOf("#tnmig=")!==0)return;try{if(/^https:\/\/tefillin-now\.sites\.tab\.bot\//.test(document.referrer)||document.referrer===""){var d=JSON.parse(decodeURIComponent(h.slice(7)));for(var k in d){if(k.indexOf("tn_")===0&&typeof d[k]==="string"&&localStorage.getItem(k)==null)localStorage.setItem(k,d[k])}}}catch(e){}try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<style>html,body{margin:0;min-height:100%;background:#fff;color:#142b43;color-scheme:light}#launchSplash{position:fixed;inset:0;z-index:10000;background:#fff;display:grid;place-items:center;font:16px system-ui,Arial;text-align:center}#launchSplash[hidden]{display:none}#launchSplash img{width:88px;height:88px;border-radius:22px}#launchSplash h1{font-size:26px;margin:16px 0 8px}#launchSplash p{color:#66788b;font-size:14px}#launchSplash .launch-line{width:190px;height:7px;background:#edf0f3;border-radius:8px;margin:18px auto;overflow:hidden}#launchSplash .launch-line:after{content:'';display:block;height:100%;width:45%;background:#ffc21a;border-radius:8px;animation:launch 1.2s ease-in-out infinite alternate}@keyframes launch{to{transform:translateX(120%)}}@media(prefers-reduced-motion:reduce){#launchSplash .launch-line:after{animation:none}}#launchSplash button{border:1px solid #d4dce5;background:white;padding:10px 20px;border-radius:22px;color:#163b60}</style>
 <title>Get Tefillin · הנחת תפילין – שליח עם תפילין מגיע אליך תוך דקות</title>
 <meta name="description" content="Get Tefillin – רוצה להניח תפילין? כמו להזמין מונית, רק עם תפילין: שליח עם זוג תפילין כשרות מגיע אליך תוך דקות, בחינם. Put on tefillin near you.">
 <meta property="og:title" content="Get Tefillin">
 <meta property="og:description" content="שליח עם זוג תפילין מגיע אליך תוך דקות. מזמינים, רואים אותו מתקרב על המפה, מניחים.">
-<meta property="og:image" content="https://get-tefillin.sites.tab.bot/og.png">
+<meta property="og:image" content="https://get-tefillin.onrender.com/og.png">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://get-tefillin.sites.tab.bot/">
-<link rel="alternate" hreflang="he" href="https://get-tefillin.sites.tab.bot/he/">
-<link rel="alternate" hreflang="en" href="https://get-tefillin.sites.tab.bot/en/">
-<link rel="alternate" hreflang="fr" href="https://get-tefillin.sites.tab.bot/fr/">
-<link rel="alternate" hreflang="ru" href="https://get-tefillin.sites.tab.bot/ru/">
-<link rel="alternate" hreflang="es" href="https://get-tefillin.sites.tab.bot/es/">
-<link rel="alternate" hreflang="pt" href="https://get-tefillin.sites.tab.bot/pt/">
-<link rel="alternate" hreflang="it" href="https://get-tefillin.sites.tab.bot/it/">
-<link rel="alternate" hreflang="yi" href="https://get-tefillin.sites.tab.bot/yi/">
-<link rel="alternate" hreflang="x-default" href="https://get-tefillin.sites.tab.bot/">
+<link rel="canonical" href="https://get-tefillin.onrender.com/">
+<link rel="alternate" hreflang="he" href="https://get-tefillin.onrender.com/he/">
+<link rel="alternate" hreflang="en" href="https://get-tefillin.onrender.com/en/">
+<link rel="alternate" hreflang="fr" href="https://get-tefillin.onrender.com/fr/">
+<link rel="alternate" hreflang="ru" href="https://get-tefillin.onrender.com/ru/">
+<link rel="alternate" hreflang="es" href="https://get-tefillin.onrender.com/es/">
+<link rel="alternate" hreflang="pt" href="https://get-tefillin.onrender.com/pt/">
+<link rel="alternate" hreflang="it" href="https://get-tefillin.onrender.com/it/">
+<link rel="alternate" hreflang="yi" href="https://get-tefillin.onrender.com/yi/">
+<link rel="alternate" hreflang="x-default" href="https://get-tefillin.onrender.com/">
 <meta name="robots" content="index,follow">
-<meta property="og:url" content="https://get-tefillin.sites.tab.bot/">
+<meta property="og:url" content="https://get-tefillin.onrender.com/">
 <meta property="og:site_name" content="Get Tefillin">
 <meta property="og:locale" content="he_IL">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Get Tefillin · הנחת תפילין – שליח עם תפילין מגיע אליך">
 <meta name="twitter:description" content="שליח עם זוג תפילין מגיע אליך תוך דקות. מזמינים, רואים אותו מתקרב על המפה, מניחים. בחינם.">
-<meta name="twitter:image" content="https://get-tefillin.sites.tab.bot/og.png">
+<meta name="twitter:image" content="https://get-tefillin.onrender.com/og.png">
 <meta name="application-name" content="Get Tefillin">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "@id": "https://get-tefillin.sites.tab.bot/#app", "name": "Get Tefillin", "alternateName": ["גט תפילין", "Get Tefilin", "GetTefillin"], "url": "https://get-tefillin.sites.tab.bot/", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any (web, Android, iOS)", "inLanguage": ["he", "en", "fr", "ru", "es", "pt", "it", "yi"], "description": "Get Tefillin connects anyone who wants to put on tefillin with a nearby volunteer who brings a kosher pair, within minutes. Free; donations welcome.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://get-tefillin.sites.tab.bot/og.png", "publisher": {"@id": "https://get-tefillin.sites.tab.bot/#org"}}, {"@type": "Organization", "@id": "https://get-tefillin.sites.tab.bot/#org", "name": "Get Tefillin", "url": "https://get-tefillin.sites.tab.bot/", "logo": "https://get-tefillin.sites.tab.bot/icons/icon-512.png"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "@id": "https://get-tefillin.onrender.com/#app", "name": "Get Tefillin", "alternateName": ["גט תפילין", "Get Tefilin", "GetTefillin"], "url": "https://get-tefillin.onrender.com/", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any (web, Android, iOS)", "inLanguage": ["he", "en", "fr", "ru", "es", "pt", "it", "yi"], "description": "Get Tefillin connects anyone who wants to put on tefillin with a nearby volunteer who brings a kosher pair, within minutes. Free; donations welcome.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://get-tefillin.onrender.com/og.png", "publisher": {"@id": "https://get-tefillin.onrender.com/#org"}}, {"@type": "Organization", "@id": "https://get-tefillin.onrender.com/#org", "name": "Get Tefillin", "url": "https://get-tefillin.onrender.com/", "logo": "https://get-tefillin.onrender.com/icons/icon-512.png"}]}</script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Get Tefillin">
-<link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="preload" href="vendor/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="vendor/leaflet.css"></noscript>
+<link id="mainStyles" rel="preload" href="styles.css?v=17" as="style" onload="this.rel='stylesheet';if(window.TN_STYLE_READY)window.TN_STYLE_READY()">
+<noscript><link rel="stylesheet" href="styles.css?v=17"></noscript>
 </head>
 <body>
+<div id="launchSplash" role="status" aria-live="polite"><div><img src="/icons/icon-192.png" alt=""><h1>Get Tefillin</h1><p id="launchMessage">טוען את המערכת… · Loading…</p><div class="launch-line" aria-hidden="true"></div><button id="launchRetry" type="button" hidden onclick="location.reload()">נסה שוב · Retry</button></div></div>
+<script>window.TN_LAUNCH_READY=function(){var l=document.getElementById('mainStyles');var done=function(){document.getElementById('launchSplash').hidden=true};if(l.sheet)done();else window.TN_STYLE_READY=done};setTimeout(function(){var s=document.getElementById('launchSplash');if(s&&!s.hidden){document.getElementById('launchMessage').textContent='הטעינה מתעכבת. בדקו חיבור ונסו שוב · Loading is taking longer than usual';document.getElementById('launchRetry').hidden=false}},12000);</script>
 <div class="app" id="app">
   <div id="map" class="map" aria-label="map"></div>
 
@@ -465,8 +471,8 @@
 <script src="vendor/leaflet.js"></script>
 <script src="config.js?v=14"></script>
 <script src="i18n.js?v=14"></script>
-<script src="active-map.js?v=2"></script>
-<script src="app.js?v=22"></script>
+<script src="active-map.js?v=3"></script>
+<script src="app.js?v=23"></script>
 <script src="/announcements.js?v=14"></script>
 </body>
 </html>
