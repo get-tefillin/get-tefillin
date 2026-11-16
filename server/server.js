@@ -149,10 +149,19 @@ function monthCountFor(shId) {
 }
 function shMonth(sh) { return monthCountFor(sh.id); }
 
+/* Explicit sharing consent is deny-by-default for all legacy records.
+   Internal dispatch may use precise fixes; only consented identity/positions leave it.
+   Self views and authenticated administration are not public sharing. */
+function privacyKey(device) { return /^[a-f0-9]{24,64}$/.test(String(device||"")) ? crypto.createHash("sha256").update(device).digest("hex") : null; }
+function privacyChoice(person) { if(person&&person.privacy_owner){const owner=db.shluchim[person.privacy_owner];return owner?privacyChoice(owner):null;} return person && person.privacy_version === 1 ? person.share_exact === true : null; }
+function sharedPoint(person) { const exact=privacyChoice(person)===true; return {lat:Number.isFinite(person.lat)?(exact?person.lat:+person.lat.toFixed(2)):null,lng:Number.isFinite(person.lng)?(exact?person.lng:+person.lng.toFixed(2)):null,approximate:!exact}; }
+function privacyView(person) { return {version:1,share_exact:privacyChoice(person),chosen:privacyChoice(person)!==null}; }
+function sharedName(person,field,fallback) { return privacyChoice(person)===true ? person[field] : fallback; }
+function sharedDistance(origin,other) { const p=sharedPoint(other);return Number.isFinite(p.lat)&&Number.isFinite(p.lng)?km(origin,[p.lat,p.lng]):null; }
 /* shaliach public cards */
 function nearbyCard(sh, pos) {
-  const k = km(pos, [sh.lat, sh.lng]);
-  return { name: sh.name, lat: sh.lat, lng: sh.lng, km: Math.round(k * 100) / 100, eta_min: etaMin(k, sh.transport), transport: sh.transport, langs: sh.langs || [], photo: sh.photo || null };
+  const p=sharedPoint(sh),k=sharedDistance(pos,sh);
+  return { name:sharedName(sh,"name","שליח באזור"),lat:p.lat,lng:p.lng,approximate:p.approximate,km:Math.round(k*100)/100,eta_min:etaMin(k,sh.transport),transport:sh.transport,langs:sh.langs||[],photo:privacyChoice(sh)===true?(sh.photo||null):null };
 }
 function shaliachFresh(sh) {
   return Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
@@ -174,7 +183,7 @@ function dispatchDistance(sh, r) {
 function liveShluchim(pos, radiusKm) {
   return Object.values(db.shluchim)
     .filter(function (sh) { return sh.mode !== "off" && shaliachFresh(sh) && alertState(sh).alerts && !activeJob(sh.id); })
-    .map(function (sh) { return { sh: sh, km: km(pos, [sh.lat, sh.lng]) }; })
+    .map(function (sh) { return { sh: sh, km: sharedDistance(pos, sh) }; })
     .filter(function (x) { return x.km <= radiusKm; })
     .sort(function (a, b) { return a.km - b.km; });
 }
@@ -219,29 +228,29 @@ function reqViewForRequester(r) {
   const out = { ok: true, status: r.status, lat: r.lat, lng: r.lng, notified: r.notified || 0, screen_seen: Object.keys(r.screen_seen||{}).length, push_accepted:r.push_accepted||0, push_failed:r.push_failed||0, ring_left_s: ringLeft(r) };
   if (r.shaliach_id && db.shluchim[r.shaliach_id]) {
     const sh = db.shluchim[r.shaliach_id];
-    const k = shaliachFresh(sh) ? km([r.lat, r.lng], [sh.lat, sh.lng]) : null;
+    const k = shaliachFresh(sh) ? sharedDistance([r.lat,r.lng],sh) : null;
     out.shaliach = {
-      name: sh.name, phone: sh.phone, lat: sh.lat, lng: sh.lng,
+      name:sharedName(sh,"name","שליח באזור"), phone:sh.phone, ...sharedPoint(sh),
       km: k == null ? null : Math.round(k * 100) / 100,
       eta_min: k == null ? null : etaMin(k, sh.transport),
       loc_age_s: sh.loc_at ? Math.round((now() - sh.loc_at) / 1000) : null,
-      transport: sh.transport, done_count: sh.done_count || 0, langs: sh.langs || [], photo: sh.photo || null
+      transport: sh.transport, done_count: sh.done_count || 0, langs: sh.langs || [], photo:privacyChoice(sh)===true?(sh.photo||null):null
     };
   }
   return out;
 }
 function ringItem(r, sh) {
-  const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
-  return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), ring_left_s: ringLeft(r), lang: r.lang || null };
+  const k = shaliachFresh(sh) ? sharedDistance([sh.lat,sh.lng],r) : null;
+  return { id: r.id, first_name: sharedName(r,"first_name","מזמין באזור"), km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), ring_left_s: ringLeft(r), lang: r.lang || null };
 }
 function jobView(r, sh) {
-  const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
-  return { id: r.id, first_name: r.first_name, phone: r.phone, lat: r.lat, lng: r.lng, km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), lang: r.lang || null, status: r.status };
+  const k = shaliachFresh(sh) ? sharedDistance([sh.lat,sh.lng],r) : null;
+  return { id: r.id, first_name: sharedName(r,"first_name","מזמין באזור"), phone:r.phone, ...sharedPoint(r), km: k == null ? null : Math.round(k * 100) / 100, eta_min: k == null ? null : etaMin(k, sh.transport), lang: r.lang || null, status: r.status };
 }
 function meView(sh) {
   const a = alertState(sh);
   return {
-    name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [],
+    name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [], location_consent:privacyView(sh),
     updates_group_url: db.settings.updates_group_url || null,
     mode: sh.mode, hours: sh.hours || { on: false, days: [null, null, null, null, null, null, null] }, tz: sh.tz || "Asia/Jerusalem",
     alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined,
@@ -320,6 +329,27 @@ setInterval(purge, 10 * 60000);
 async function api(req, res, pathname, query) {
   const seg = pathname.split("/").filter(Boolean); // ["api", ...]
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+
+  /* POST /api/location-privacy: read/update this device/account only. Never trust a boolean on GPS or registration endpoints. */
+  if(pathname==="/api/location-privacy" && req.method==="POST"){
+    const b=await readBody(req),key=privacyKey(b.device);
+    if(!key)return fail(res,"device",400);
+    const tok=token(req),sh=tok?findShByToken(tok):null;
+    const rq=b.request_id?findReq(String(b.request_id)):null;
+    if(tok&&!sh&&!(rq&&rq.token===tok&&rq.device===b.device))return fail(res,"auth",401);
+    const deviceChoice=(db.location_privacy||{})[key];
+    const current=sh?privacyChoice(sh):deviceChoice&&deviceChoice.version===1?deviceChoice.share_exact===true:null;
+    if(b.read===true)return json(res,200,{ok:true,version:1,share_exact:current,chosen:current!==null});
+    if(typeof b.share_exact!=="boolean")return fail(res,"consent",400);
+    if(limited("privacywrite:"+ip,60,60000))return fail(res,"rate",429);
+    db.location_privacy=db.location_privacy||{};
+    if(!db.location_privacy[key]&&Object.keys(db.location_privacy).length>=100000)return fail(res,"capacity",503);
+    db.location_privacy[key]={version:1,share_exact:b.share_exact,at:now()};
+    if(sh){sh.privacy_version=1;sh.share_exact=b.share_exact;sh.privacy_at=now();}
+    Object.values(db.requests).filter(r=>r.device===b.device).forEach(r=>{r.privacy_version=1;r.share_exact=b.share_exact;r.privacy_at=now()});
+    worldSnapshot=null;worldResponses.clear();store.save();
+    return json(res,200,{ok:true,version:1,share_exact:b.share_exact,chosen:true});
+  }
 
   /* GET /api/config */
   if (pathname === "/api/config" && req.method === "GET") return json(res, 200, { ok: true, donation_url: CFG.donation_url });
@@ -409,10 +439,12 @@ async function api(req, res, pathname, query) {
     // one open request per device at a time
     const existing = Object.values(db.requests).find(function (r) { return r.device === b.device && ["open", "waiting", "accepted", "arrived"].indexOf(r.status) >= 0; });
     if (existing) return json(res, 200, { ok: true, id: existing.id, token: existing.token, notified: existing.notified || 0 });
+    const privacyOwner=findShByToken(token(req));
+    const requestChoice=privacyOwner?{version:privacyOwner.privacy_version,share_exact:privacyChoice(privacyOwner)===true}:((db.location_privacy||{})[privacyKey(b.device)]||{});
     const r = {
       id: rid(12), token: rid(16), first_name: name, phone: String(b.phone).trim(),
       lat: lat, lng: lng, address: String(b.address || ""), device: String(b.device || ""), loc_source: String(b.loc_source || ""), lang: String(b.lang || "he"),
-      status: "open", created_at: now(), declined: {}, chat: [], chat_seq: 0
+      status:"open",created_at:now(),declined:{},chat:[],chat_seq:0,privacy_owner:privacyOwner?privacyOwner.id:null,privacy_version:requestChoice.version||0,share_exact:requestChoice.share_exact===true
     };
     startRing(r);
     db.requests[r.id] = r;
@@ -559,7 +591,7 @@ async function api(req, res, pathname, query) {
         transport: b.transport, has_tefillin: true, langs: Array.isArray(b.langs) && b.langs.length ? b.langs.slice(0, 8) : [String(b.lang || "he")],
         lang: String(b.lang || "he"), tz: String(b.tz || "Asia/Jerusalem"),
         mode: "off", hours: { on: false, days: [null, null, null, null, null, null, null] },
-        lat: null, lng: null, loc_at: 0, created_at: now(), done_count: 0, photo: null, push: []
+        lat:null,lng:null,loc_at:0,created_at:now(),done_count:0,photo:null,push:[],privacy_version:((db.location_privacy||{})[privacyKey(b.device)]||{}).version||0,share_exact:((db.location_privacy||{})[privacyKey(b.device)]||{}).share_exact===true
       };
       db.shluchim[sh.id] = sh; store.save();
       return json(res, 200, { ok: true, token: sh.token, shaliach: meView(sh) });
@@ -569,10 +601,10 @@ async function api(req, res, pathname, query) {
     if (sub === "photo" && seg[3] && req.method === "GET") {
       const owner = Object.values(db.shluchim).find(function (s) { return s.photo === seg[3]; });
       const f = owner ? path.join(store.photoDir, "sh-" + owner.photo + ".jpg") : null;
-      if (!f) return fail(res,"not_found",404);
+      if (!f || (privacyChoice(owner)!==true && token(req)!==owner.token)) return fail(res,"not_found",404);
       if(!fs.existsSync(f)){const buf=await remote.getPhoto("sh-"+owner.photo+".jpg");if(buf)fs.writeFileSync(f,buf);}
       if(!fs.existsSync(f))return fail(res,"not_found",404);
-      res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=300" });
+      res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "no-store" });
       return fs.createReadStream(f).pipe(res);
     }
 
@@ -682,8 +714,8 @@ async function api(req, res, pathname, query) {
         .filter(function (r) { return (r.status === "waiting" || (r.status==="open"&&ringLeft(r)===0)) && now()-r.created_at<24*3600000 && !job && sh.mode!=="off" && dispatchDistance(sh,r)!==null && !(r.declined && r.declined[sh.id]); })
         .sort(function (a, b2) { return a.created_at - b2.created_at; }).slice(0, 20)
         .map(function (r) {
-          const k = shaliachFresh(sh) ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
-          return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, age_s: Math.round((now() - r.created_at) / 1000), lang: r.lang || null };
+          const k = shaliachFresh(sh) ? sharedDistance([sh.lat,sh.lng],r) : null;
+          return { id: r.id, first_name: sharedName(r,"first_name","מזמין באזור"), km: k == null ? null : Math.round(k * 100) / 100, age_s: Math.round((now() - r.created_at) / 1000), lang: r.lang || null };
         });
       if(checkpointPresence||dispatchChanged)store.save();
       return json(res, 200, { ok: true, me: meView(sh), waiting: sh.mode === "off" ? [] : waiting, ringing: ringing, job: job ? jobView(job, sh) : null });
