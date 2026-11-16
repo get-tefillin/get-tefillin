@@ -349,7 +349,7 @@ function ensureWatch(){
   V.watchId=navigator.geolocation.watchPosition(function(p){V.pos=[p.coords.latitude,p.coords.longitude];V.acc=p.coords.accuracy;V.posAt=Date.now();
       if(V.myMarker)V.myMarker.setLatLng(V.pos);else if(mode==="vol")drawVolMap();
       if(cur==="s-vdash")$("gpsLine").textContent=gpsTxt();vPoll()},
-    function(e){if(e.code===1){toast(t("no_perm_calls"),3500);$("gpsLine").textContent=t("no_perm_line")}},
+    function(e){if(e.code===1){toast(stText("אין הרשאת מיקום חי. אפשר להגדיר אזור פעילות קבוע.","No live location permission. You can set a fixed coverage area."),3500);$("gpsLine").textContent=stText("ללא מיקום חי. אזור קבוע פועל רק לאחר הגדרה ואישור התראות.","No live location. Fixed coverage requires setup and notification permission.")}},
     {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
 function stopWatch(){if(V.watchId!=null&&V.mode==="off"&&!V.job){navigator.geolocation.clearWatch(V.watchId);V.watchId=null;V.pos=null}}
