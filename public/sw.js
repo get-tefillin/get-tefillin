@@ -1,6 +1,6 @@
 // Get Tefillin — service worker: caches the app shell; the API and admin always go to the network.
-const CACHE = "tn-shell-v15";
-const SHELL = ["/announcements.js?v=13","/", "/styles.css?v=11", "/app.js?v=15", "/config.js?v=11", "/i18n.js?v=11", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js", "/map/map.css", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "tn-shell-v16";
+const SHELL = ["/announcements.js?v=13","/", "/styles.css?v=11", "/app.js?v=15", "/config.js?v=11", "/i18n.js?v=11", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js?v=16", "/map/map.css?v=16", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "tn-push-log").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
