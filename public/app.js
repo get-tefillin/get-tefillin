@@ -321,6 +321,8 @@ function renderDash(){
   $("vName").textContent=m.name||V.me.name||"";(function(){var av=$("vAvatar");if(m.photo){av.className="avatar has-photo";av.innerHTML='<img src="/api/shaliach/photo/'+esc(m.photo)+'?v='+m.photo+'" alt="">'}else{var i=initialOf(m.name||V.me.name);if(i){av.className="avatar initial";av.textContent=i}}})();var pb=$("vPhotoBtn");if(pb)pb.textContent=t(m.photo?"sh_photo_change":"sh_photo_add");$("vLangs").textContent=m.langs&&m.langs.length?"🌐 "+m.langs.map(langName).join(" · "):"";
   $("monthCount").textContent=m.month_count||0;$("totalCount").textContent=m.done_count||0;
   renderModeUI(m);
+  var group=$('updatesGroup');if(!group){group=document.createElement('a');group.id='updatesGroup';group.className='btn soft';group.style.cssText='display:block;text-align:center;margin:14px 0;white-space:normal;height:auto;padding:14px;text-decoration:none';group.target='_blank';group.rel='noopener noreferrer';$('hoursBtn').after(group)}
+  group.textContent=stText('הצטרף לקבוצת העדכונים בוואטסאפ','Join the WhatsApp updates group');group.hidden=!m.updates_group_url;if(m.updates_group_url)group.href=m.updates_group_url;else group.removeAttribute('href');
   var on=V.mode!=="off";
   $("gpsLine").textContent=!on?"":(V.pos?gpsTxt():t("loc_wait_perm"));
   var w=(V.data&&V.data.waiting)||[];$("waitWrap").hidden=!on||!w.length;$("waitTxt").hidden=!on||!!w.length;
