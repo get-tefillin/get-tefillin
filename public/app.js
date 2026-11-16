@@ -895,6 +895,7 @@ $("locateBtn").onclick=function(){
   getGps(function(pp){if(mode==="vol"){map.setView(pp,16)}else{setUserPos(pp,"gps");if(cur==="s-home"){renderNearby();loadNearby(true)}else map.setView(pp,16)}},function(){toast(t("no_loc_perm"))});
 };
 
+if(window.TN_LAUNCH_READY)window.TN_LAUNCH_READY();
 /* ---------- boot ---------- */
 var BOOT_REQ=null;try{BOOT_REQ=new URLSearchParams(location.search).get("r");if(BOOT_REQ)history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
 (function boot(){
