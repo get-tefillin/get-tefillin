@@ -363,7 +363,7 @@ async function api(req, res, pathname, query) {
     if(query.lat!==undefined&&query.lng!==undefined){const pos=[Number(query.lat),Number(query.lng)];if(!Number.isFinite(pos[0])||!Number.isFinite(pos[1])||Math.abs(pos[0])>90||Math.abs(pos[1])>180)return fail(res,"location",400);list=list.map(s=>Object.assign(s,{km:Math.round(km(pos,[s.lat,s.lng])*10)/10})).filter(s=>s.km<=100).sort((a,b)=>a.km-b.km);}
     if(query.bounds){const b=query.bounds.split(',').map(Number);if(b.length!==4||b.some(x=>!Number.isFinite(x)))return fail(res,"bounds",400);list=list.filter(s=>s.lat>=b[1]&&s.lat<=b[3]&&(b[0]<=b[2]?(s.lng>=b[0]&&s.lng<=b[2]):(s.lng>=b[0]||s.lng<=b[2])));}
     if(query.open==="1")list=list.filter(s=>s.open_now);
-    const total=list.length;return json(res,200,{ok:true,stands:list.slice(0,500),total,limited:total>500},{"cache-control":"public, max-age=30"});
+    const total=list.length;return json(res,200,{ok:true,source_sync:db.stand_source_sync||null,stands:list.slice(0,1000),total,limited:total>1000},{"cache-control":"public, max-age=30"});
   }
 
   /* GET /api/push/key */
@@ -966,12 +966,12 @@ async function api(req, res, pathname, query) {
       db.stands=db.stands||{};
       if(b.id&&(typeof b.id!=="string"||!/^([a-f0-9]{24})$/.test(b.id)||!Object.prototype.hasOwnProperty.call(db.stands,b.id)))return fail(res,"not_found",404);
       if(!b.id&&Object.keys(db.stands).length>=5000)return fail(res,"capacity",429);
-      const id=b.id||rid(12);db.stands[id]=Object.assign({id,created_at:db.stands[id]?db.stands[id].created_at:now()},normalized,{updated_at:now()});store.save();
+      const id=b.id||rid(12);db.stands[id]=Object.assign({},db.stands[id]||{},{id,created_at:db.stands[id]?db.stands[id].created_at:now()},normalized,{updated_at:now()},db.stands[id]&&db.stands[id].source?{source_customized:true}:{});store.save();
       return json(res,200,{ok:true,stand:db.stands[id]});
     }
     if(sub==="stands" && seg[3]==="delete" && req.method==="POST"){
       const b=await readBody(req);if(b.confirm!=="DELETE STAND "+b.id)return fail(res,"confirmation",400);
-      if(typeof b.id!=="string"||!Object.prototype.hasOwnProperty.call(db.stands||{},b.id))return fail(res,"not_found",404);delete db.stands[b.id];store.save();return json(res,200,{ok:true});
+      if(typeof b.id!=="string"||!Object.prototype.hasOwnProperty.call(db.stands||{},b.id))return fail(res,"not_found",404);if(db.stands[b.id].source){db.stand_source_suppressed=db.stand_source_suppressed||{};db.stand_source_suppressed[b.id]=true;}delete db.stands[b.id];store.save();return json(res,200,{ok:true});
     }
     if(sub==="dispatch"&&req.method==="GET")return json(res,200,{ok:true,radius_km:RING_RADIUS_KM,shluchim:Object.values(db.shluchim).map(sh=>({id:sh.id,name:sh.name,mode:sh.mode,location_ready:shaliachFresh(sh),coverage_ready:coverageValid(sh.coverage),push_devices:(sh.push||[]).length,alerts:alertState(sh).alerts,busy:!!activeJob(sh.id)})),requests:Object.values(db.requests).filter(r=>r.status==="open"||r.status==="waiting").map(r=>({id:r.id,status:r.status,candidates:(r.candidates||[]).length,screen_seen:Object.keys(r.screen_seen||{}).length,push_accepted:r.push_accepted||0,push_failed:r.push_failed||0,created_at:r.created_at}))});
     if(sub==="health" && req.method==="GET")return json(res,200,{ok:true,uptime_seconds:Math.floor(process.uptime()),inflight:inflight,memory_mb:Math.round(process.memoryUsage().rss/1048576),backup:{enabled:remote.ENABLED,pending:remote.health.pending,last_ok:remote.health.last_ok,last_error:remote.health.last_error}});
@@ -1249,6 +1249,9 @@ setInterval(function () { maybeSendMonthlyReport(false).catch(function (e) { con
 
 async function safeRestore(){for(let i=0;i<3;i++){try{await store.restore();return}catch(e){if(i===2)throw e;await new Promise(r=>setTimeout(r,1000*(i+1)))}}}
 safeRestore().then(function () {
+  const imported=require("./chabad-stands").apply(db,require("./chabad-stands-data.json"),now());
+  if(imported.added||imported.updated||imported.retired)store.save();
+  console.log("Chabad Israel stand snapshot: "+JSON.stringify(imported));
   if (db.settings.push_signing) CFG.vapid=db.settings.push_signing;
   else { db.settings.push_signing=CFG.vapid; store.save(); }
   (db.settings.announcements||[]).forEach(a=>{if(a.state==="queued"||a.state==="sending")a.state="interrupted"});

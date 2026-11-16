@@ -1,0 +1,5 @@
+'use strict';
+// Refresh deliberately, inspect the diff and run tests, then deploy the new snapshot.
+// Uses the same public search endpoint and operation as the official directory.
+const fs=require('fs'),path=require('path'),{build,ENDPOINT}=require('./chabad-stands');
+(async()=>{const raw=process.argv[2]?JSON.parse(fs.readFileSync(process.argv[2],'utf8')):await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operationId:215,operationName:'1'}),signal:AbortSignal.timeout(30000)}).then(r=>{if(!r.ok)throw Error(r.status);return r.json()});const snapshot=build(raw,new Date().toISOString());const fields=Object.keys(snapshot.records[0]);const packed={...snapshot,record_fields:fields,records:snapshot.records.map(r=>fields.map(k=>r[k]))};fs.writeFileSync(path.join(__dirname,'chabad-stands-data.json'),JSON.stringify(packed)+'\n');console.log(JSON.stringify({...snapshot,records:undefined},null,2));})().catch(e=>{console.error(e);process.exit(1)});

@@ -57,7 +57,7 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
 <label>שם המקום<input type="text" id="standName" maxlength="100" style="width:100%"></label>
 <label>כתובת מלאה<input type="text" id="standAddress" maxlength="300" style="width:100%"></label><button id="standGeocode" type="button">חיפוש כתובת במפה</button><div id="standResults"></div><p id="standCoords">יש לבחור נקודה מדויקת במפה</p><div id="standMap" style="height:280px"></div>
 <label>הנחיות למגיעים<textarea id="standNote" maxlength="500" style="width:100%" placeholder="למשל: התפילין על המדף ליד הקופה, ללא סיוע של שליח"></textarea></label>
-<label>אזור זמן (למשל Asia/Jerusalem)<input type="text" id="standTz" dir="ltr"></label><label style="display:block"><input type="checkbox" id="standAlways"> פתוח תמיד, 24/7 (רק אם אכן כך)</label><div id="standDays"></div>
+<label>טלפון ציבורי<input type="tel" id="standPhone" dir="ltr" maxlength="16"></label><label style="display:block"><input type="checkbox" id="standUnknown"> שעות הפעילות לא ידועות</label><label>אזור זמן (למשל Asia/Jerusalem)<input type="text" id="standTz" dir="ltr"></label><label style="display:block"><input type="checkbox" id="standAlways"> פתוח תמיד, 24/7 (רק אם אכן כך)</label><div id="standDays"></div>
 <label style="display:block"><input type="checkbox" id="standActive"> פרסם כדוכן פעיל באתר ובאפליקציה</label><button id="standSave" class="act gold">שמירה ופרסום לפי הבחירה</button><button id="standCancel">ביטול</button></div></section>
 
 <section>
@@ -251,6 +251,6 @@ $("logout").onclick=function(){api("/api/admin/logout",{}).then(function(){locat
 $("backup").onclick=function(){location.href="/api/admin/export"};
 load();loadBulletin();setInterval(load,15000);
 </script>
-<script src="/vendor/leaflet.js"></script><script src="/admin-stands.js?v=15"></script>
+<script src="/vendor/leaflet.js"></script><script src="/admin-stands.js?v=16"></script>
 </body>
-  </html>
+</html>

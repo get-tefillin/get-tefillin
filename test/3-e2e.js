@@ -207,18 +207,18 @@ async function main() {
     r=await j("POST","/api/admin/stands/save",{...stand,tz:"bad"},null,{cookie});check("stand rejects invalid timezone",r.status===400);
     r=await j("POST","/api/admin/stands/save",{...stand,days:[[900,300],null,null,null,null,null,null]},null,{cookie});check("stand rejects invalid hours",r.status===400);
     r=await j("POST","/api/admin/stands/save",stand,null,{cookie});check("stand created",r.j.ok&&!!r.j.stand.id);const standId=r.j.stand.id;
-    r=await j("GET","/api/stands?lat=32.08&lng=34.85");check("stand public nearby + open + no admin fields",r.j.stands.length===1&&r.j.stands[0].km===0&&r.j.stands[0].open_now&&!JSON.stringify(r.j).includes("created_at"));
+    r=await j("GET","/api/stands?lat=32.08&lng=34.85");check("stand public nearby + open + no admin fields",r.j.stands.some(s=>s.id===standId&&s.km===0&&s.open_now)&&!JSON.stringify(r.j).includes("created_at"));
     r=await j("GET","/api/stands?lat=0&lng=0");check("stand outside 100km excluded",r.j.stands.length===0);
-    r=await j("GET","/api/stands?bounds=30,30,35,35");check("stand included in map bounds",r.j.stands.length===1);
+    r=await j("GET","/api/stands?bounds=30,30,35,35");check("stand included in map bounds",r.j.stands.some(s=>s.id===standId));
     r=await j("GET","/api/stands?bounds=170,-40,-170,40");check("antimeridian stand bounds exclude Israel",r.j.stands.length===0);
     r=await j("POST","/api/admin/stands/save",{...stand,id:standId,always:false},null,{cookie});check("stand hours edit",r.j.ok);
     r=await j("GET","/api/stands?open=1");check("closed stand open filter",r.j.stands.length===0);
     r=await j("POST","/api/admin/stands/save",{...stand,id:standId,active:false},null,{cookie});check("stand disable",r.j.ok);
-    r=await j("GET","/api/stands");check("unpublished stand hidden",r.j.stands.length===0);
+    r=await j("GET","/api/stands");check("unpublished stand hidden",!r.j.stands.some(s=>s.id===standId));
     r=await j("POST","/api/admin/stands/save",{...stand,id:"__proto__"},null,{cookie});check("stand rejects inherited id",r.status===404);
     r=await j("POST","/api/admin/stands/delete",{id:standId,confirm:""},null,{cookie});check("stand delete confirmation",r.status===400);
     r=await j("POST","/api/admin/stands/delete",{id:standId,confirm:"DELETE STAND "+standId},null,{cookie});check("stand deleted",r.j.ok);
-    r=await j("GET","/api/admin/stands",null,null,{cookie});check("stand admin list empty after cleanup",r.j.stands.length===0);
+    r=await j("GET","/api/admin/stands",null,null,{cookie});check("stand admin list preserves imported snapshot after cleanup",r.j.stands.length===763&&!r.j.stands.some(s=>s.id===standId));
 
     /* orderer registry (admin backup of everyone who ordered) */
     r = await j("POST", "/api/admin/report/test", {}, null, { cookie });
