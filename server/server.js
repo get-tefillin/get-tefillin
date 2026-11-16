@@ -853,7 +853,7 @@ async function api(req, res, pathname, query) {
     /* Admin: get/set the public announcement + stats visibility */
     if (sub === "bulletin" && req.method === "GET") {
       const st = db.settings || {};
-      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible, report_email: st.report_email || null, updates_group_url:st.updates_group_url || null });
+      return json(res, 200, { ok: true, announcement: st.announcement || null, stats_visible: !!st.stats_visible, report_email: st.report_email || null, report_paused: st.report_paused !== false, updates_group_url:st.updates_group_url || null });
     }
     if (sub === "bulletin" && req.method === "POST") {
       const b = await readBody(req);
@@ -872,8 +872,9 @@ async function api(req, res, pathname, query) {
         if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return fail(res, "bad_email", 400);
         db.settings.report_email = em || null;
       }
+      if (typeof b.report_paused === "boolean") db.settings.report_paused=b.report_paused;
       store.save();
-      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible, report_email: db.settings.report_email,updates_group_url:db.settings.updates_group_url||null });
+      return json(res, 200, { ok: true, announcement: db.settings.announcement, stats_visible: db.settings.stats_visible, report_email: db.settings.report_email,report_paused:db.settings.report_paused!==false,updates_group_url:db.settings.updates_group_url||null });
     }
 
     if (sub === "overview" && req.method === "GET") {
@@ -1227,6 +1228,8 @@ async function sendReportEmail(to, subject, text) {
 }
 
 async function maybeSendMonthlyReport(force, markSent) {
+  // Pause applies to scheduled and manual sends. It never clears saved data.
+  if (db.settings.report_paused !== false) return {ok:false,skipped:"paused"};
   if (!BREVO_API_KEY) return { ok: false, skipped: "no_key" };
   const to = db.settings && db.settings.report_email;
   if (!to) return { ok: false, skipped: "no_recipient" };
