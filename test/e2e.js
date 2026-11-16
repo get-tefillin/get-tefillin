@@ -96,7 +96,10 @@ async function main() {
     check("world map shows available shaliach at approximate location", availableWorld.j.total === 1 && availableWorld.j.clusters[0].lat === 32.08 && availableWorld.j.clusters[0].lng === 34.85, availableWorld.j);
     check("world map never exposes contact, name, token or id", !/שליח|token|0501112233/.test(JSON.stringify(availableWorld.j)));
 
-    /* shaliach sets his own photo */
+    r=await j("POST","/api/location-privacy",{device:"aaaaaaaaaaaaaaaaaaaaaaaa",share_exact:true},shTok);
+    check("explicit sharing consent saved before public profile",r.j&&r.j.ok&&r.j.share_exact===true,r.j);
+
+    /* shaliach sets his own photo (only after explicit sharing consent) */
     const shJpeg = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.alloc(300, 7), Buffer.from([0xff, 0xd9])]);
     let spr = await fetch(BASE + "/api/shaliach/photo", { method: "POST", headers: { "content-type": "image/jpeg", "x-token": shTok }, body: shJpeg });
     let spj = await spr.json();
