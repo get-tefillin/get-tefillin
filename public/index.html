@@ -84,6 +84,8 @@
     <div class="loc"><span class="pickdot" aria-hidden="true"></span><div class="loc-txt"><small data-i18n="your_loc">המיקום שלך</small><b id="locText" data-i18n="locating">מאתר מיקום…</b></div><button class="mini" id="changeLoc" type="button" data-i18n="change">שינוי</button></div>
     <div class="bulletin" id="homeBanner" dir="auto" hidden></div>
     <p class="bl-stats" id="blStats" hidden></p>
+    <div style="display:flex;gap:8px;margin:12px 0"><button type="button" id="findVolunteer" class="mini on" aria-pressed="true">שליח שמגיע אליי</button><button type="button" id="findStand" class="mini" aria-pressed="false">דוכן שאגיע אליו</button></div>
+    <div id="standPanel" hidden><p id="standDisclaimer" style="font-size:12px;color:#667"></p><ul id="standNearby" style="list-style:none;padding:0;max-height:230px;overflow:auto"></ul></div>
     <div class="avail">
       <p class="avail-t" id="availTitle" data-i18n="searching_nearby">מחפשים שליחים לידך…</p>
       <ul class="vol-list" id="volList"></ul>
@@ -462,7 +464,7 @@
 <script src="vendor/leaflet.js"></script>
 <script src="config.js?v=14"></script>
 <script src="i18n.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 <script src="/announcements.js?v=14"></script>
 </body>
 </html>

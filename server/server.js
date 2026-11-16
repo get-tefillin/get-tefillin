@@ -16,6 +16,7 @@ const { Store } = require("./store");
 const remote = require("./remote");
 const push = require("./push");
 const announcements = require("./announcements");
+const stands = require("./stands");
 const announcementDrafts = new Map();
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
@@ -338,6 +339,14 @@ async function api(req, res, pathname, query) {
     if (ipLimited(ip)) return fail(res,"rate",429);
     if (!db.announcement_devices[key] && Object.keys(db.announcement_devices).length>=10000) return fail(res,"capacity",429);
     db.announcement_devices[key]={sub:b.sub,at:now()};store.save();return json(res,200,{ok:true});
+  }
+
+  if(pathname==="/api/stands" && req.method==="GET"){
+    let list=Object.values(db.stands||{}).filter(s=>s.active).map(s=>stands.publicView(s));
+    if(query.lat!==undefined&&query.lng!==undefined){const pos=[Number(query.lat),Number(query.lng)];if(!Number.isFinite(pos[0])||!Number.isFinite(pos[1])||Math.abs(pos[0])>90||Math.abs(pos[1])>180)return fail(res,"location",400);list=list.map(s=>Object.assign(s,{km:Math.round(km(pos,[s.lat,s.lng])*10)/10})).filter(s=>s.km<=100).sort((a,b)=>a.km-b.km);}
+    if(query.bounds){const b=query.bounds.split(',').map(Number);if(b.length!==4||b.some(x=>!Number.isFinite(x)))return fail(res,"bounds",400);list=list.filter(s=>s.lat>=b[1]&&s.lat<=b[3]&&(b[0]<=b[2]?(s.lng>=b[0]&&s.lng<=b[2]):(s.lng>=b[0]||s.lng<=b[2])));}
+    if(query.open==="1")list=list.filter(s=>s.open_now);
+    const total=list.length;return json(res,200,{ok:true,stands:list.slice(0,500),total,limited:total>500},{"cache-control":"public, max-age=30"});
   }
 
   /* GET /api/push/key */
@@ -909,6 +918,21 @@ async function api(req, res, pathname, query) {
       return json(res, 200, { ok: true });
     }
 
+    if(sub==="stands" && req.method==="GET")return json(res,200,{ok:true,stands:Object.values(db.stands||{}).map(s=>Object.assign({},s,{open_now:stands.openNow(s)}))});
+    if(sub==="stands" && seg[3]==="save" && req.method==="POST"){
+      const b=await readBody(req),normalized=stands.normalize(b);
+      if(!normalized)return fail(res,"stand_fields",400);
+      if(b.confirm!=="PUBLISH STAND")return fail(res,"confirmation",400);
+      db.stands=db.stands||{};
+      if(b.id&&(typeof b.id!=="string"||!/^([a-f0-9]{24})$/.test(b.id)||!Object.prototype.hasOwnProperty.call(db.stands,b.id)))return fail(res,"not_found",404);
+      if(!b.id&&Object.keys(db.stands).length>=5000)return fail(res,"capacity",429);
+      const id=b.id||rid(12);db.stands[id]=Object.assign({id,created_at:db.stands[id]?db.stands[id].created_at:now()},normalized,{updated_at:now()});store.save();
+      return json(res,200,{ok:true,stand:db.stands[id]});
+    }
+    if(sub==="stands" && seg[3]==="delete" && req.method==="POST"){
+      const b=await readBody(req);if(b.confirm!=="DELETE STAND "+b.id)return fail(res,"confirmation",400);
+      if(typeof b.id!=="string"||!Object.prototype.hasOwnProperty.call(db.stands||{},b.id))return fail(res,"not_found",404);delete db.stands[b.id];store.save();return json(res,200,{ok:true});
+    }
     if(sub==="health" && req.method==="GET")return json(res,200,{ok:true,uptime_seconds:Math.floor(process.uptime()),inflight:inflight,memory_mb:Math.round(process.memoryUsage().rss/1048576),backup:{enabled:remote.ENABLED,pending:remote.health.pending,last_ok:remote.health.last_ok,last_error:remote.health.last_error}});
     if (sub === "announcements" && req.method === "GET") {
       return json(res,200,{ok:true,shluchim_devices:announcements.targets(db,"shluchim").length,all_devices:announcements.targets(db,"all").length,

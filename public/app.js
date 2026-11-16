@@ -83,9 +83,19 @@ function getGps(ok,fail){
 }
 function setUserPos(p,src){U.pos=p;U.src=src;U.addr="";locLabel();reverseGeo(p)}
 
+var FIND_STAND=false,homeStands=[],standLast=0;
+function stText(he,en){return LANG==='he'||LANG==='yi'?he:en}
+function stHours(s){if(s.always)return stText('פתוח 24/7','Open 24/7');return s.days.map(function(d,i){if(!d)return '';function f(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}return (LANG==='he'?['א','ב','ג','ד','ה','ו','שבת']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'])[i]+': '+f(d[0])+'-'+f(d[1])}).filter(Boolean).join(' · ')+' ('+s.tz+')'}
+function renderStands(){var list=$('standNearby');list.textContent='';if(!U.pos){list.textContent=stText('יש לבחור מיקום','Choose your location');return}
+ if(!homeStands.length)list.textContent=stText('אין דוכנים מפורסמים בטווח 100 ק״מ. אפשר לחפש במפה העולמית.','No published stands within 100 km. Try the world map.');
+ homeStands.slice(0,20).forEach(function(s){var li=document.createElement('li');li.style.cssText='padding:12px 0;border-bottom:1px solid #ddd';var title=document.createElement('b');title.textContent=s.name+' · '+fmtKm(s.km);li.appendChild(title);[s.address,s.open_now?stText('פתוח כעת לפי השעות','Open now per schedule'):stText('סגור כעת לפי השעות','Closed now per schedule'),stHours(s),s.note].forEach(function(t){if(t){var p=document.createElement('p');p.textContent=t;p.style.cssText='margin:5px 0;font-size:13px';li.appendChild(p)}});var a=document.createElement('a');a.href='https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lng;a.target='_blank';a.rel='noopener';a.textContent=stText('ניווט לדוכן','Directions to stand');li.appendChild(a);list.appendChild(li)});drawHome()}
+function loadStands(force){if(!U.pos||(!force&&Date.now()-standLast<60000))return;standLast=Date.now();api('GET','/api/stands?lat='+U.pos[0]+'&lng='+U.pos[1]).then(function(j){if(j.ok){homeStands=j.stands||[];renderStands()}else{$('standNearby').textContent=stText('לא ניתן לעדכן דוכנים כרגע','Cannot update stands right now');standLast=0}})}
+function setFindStand(on){FIND_STAND=on;$('findVolunteer').classList.toggle('on',!on);$('findStand').classList.toggle('on',on);$('findVolunteer').setAttribute('aria-pressed',!on);$('findStand').setAttribute('aria-pressed',on);$('standPanel').hidden=!on;$('orderForm').hidden=on;$('availTitle').parentNode.hidden=on;if(on){loadStands(true);renderStands()}drawHome()}
+$('findVolunteer').onclick=function(){setFindStand(false)};$('findStand').onclick=function(){setFindStand(true)};
 function drawHome(){
   layer.clearLayers();
   if(U.pos)L.marker(U.pos,{icon:meIcon,zIndexOffset:500}).addTo(layer);
+  if(FIND_STAND){homeStands.forEach(function(s){L.marker([s.lat,s.lng],{icon:divIcon('<div style="background:#b97a16;color:white;border:3px solid white;border-radius:10px;text-align:center;font-size:22px">▣</div>',32)}).bindTooltip(s.name).addTo(layer)});return}
   U.nearby.forEach(function(s){L.marker([s.lat,s.lng],{icon:pinIcon(s.name,false),keyboard:false}).addTo(layer)});
 }
 function renderNearby(){
@@ -112,6 +122,7 @@ function loadBulletin(){
   }).catch(function(){})
 }
 function loadNearby(fitIt){
+  if(FIND_STAND)loadStands(fitIt);
   if(!U.pos){return}
   api("GET","/api/nearby?lat="+U.pos[0].toFixed(5)+"&lng="+U.pos[1].toFixed(5)+"&lang="+LANG).then(function(j){
     if(!j.ok)return;U.nearby=j.shluchim||[];U.totalDone=j.total_done||0;
@@ -122,10 +133,11 @@ function loadNearby(fitIt){
 function goHome(){
   stopReqPoll();setModeTabs("user");show("s-home");loadBulletin();
   var me=LS.get("me");if(me){if(!$("reqName").value)$("reqName").value=me.name||"";if(!$("reqPhone").value)$("reqPhone").value=me.phone||""}
+  $('findVolunteer').textContent=stText('שליח שמגיע אליי','Volunteer comes to me');$('findStand').textContent=stText('דוכן שאגיע אליו','Stand I can visit');$('standDisclaimer').textContent=stText('דוכן הוא מקום קבוע עם תפילין, ללא הבטחה לסיוע של שליח. השעות לפי פרטי המקום; מומלץ לוודא לפני הגעה.','A stand is a fixed location with tefillin, with no promise of volunteer assistance. Hours are as listed; confirm before visiting.');
   whoSync();loadWallCar();
   if(!U.pos){renderNearby();getGps(function(p){setUserPos(p,"gps");renderNearby();loadNearby(true)},function(){openLocPick(t("gps_fail"))})}
   else{locLabel();renderNearby();loadNearby(true)}
-  clearInterval(U.nearT);U.nearT=setInterval(function(){if(cur==="s-home")loadNearby(false)},10000);
+  clearInterval(U.nearT);U.nearT=setInterval(function(){if(cur==="s-home"&&!document.hidden)loadNearby(false)},10000);
 }
 
 /* location picker */
