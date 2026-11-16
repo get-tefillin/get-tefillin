@@ -59,7 +59,7 @@ function fit(points,maxZoom){
 /* ---------- screens ---------- */
 var SCREENS=["s-intro","s-home","s-locpick","s-match","s-none","s-waiting","s-route","s-arrived","s-done","s-vreg","s-vdash","s-vhours","s-vreq","s-vgo","s-vdone","s-vthanks"];
 var cur=null;
-function show(id){if(mapOnly&&id!==cur)setMapOnly(false);cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
+function show(id){var same=id===cur;if(mapOnly&&!same)setMapOnly(false);cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);if(!(same&&s===id))el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
 function canMapOnly(){return cur==='s-home'||cur==='s-vdash'}
 function setMapOnly(on){on=!!on&&canMapOnly();mapOnly=on;$('app').classList.toggle('map-only',on);$('activeMapControls').hidden=!on;if(on){layer.clearLayers();document.activeElement&&document.activeElement.blur()}activeMap.show(on);sheetSync();setTimeout(function(){map.invalidateSize();if(!on){if(cur==='s-home')drawHome();else if(cur==='s-vdash')drawVolMap(false)}},80)}
 $('restoreCard').onclick=function(){setMapOnly(false)};$('allActiveVols').onclick=function(){activeMap.all()};
