@@ -42,8 +42,8 @@
 <meta name="apple-mobile-web-app-title" content="Get Tefillin">
 <link rel="preload" href="vendor/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="vendor/leaflet.css"></noscript>
-<link id="mainStyles" rel="preload" href="styles.css?v=17" as="style" onload="this.rel='stylesheet';if(window.TN_STYLE_READY)window.TN_STYLE_READY()">
-<noscript><link rel="stylesheet" href="styles.css?v=17"></noscript>
+<link id="mainStyles" rel="preload" href="styles.css?v=18" as="style" onload="this.rel='stylesheet';if(window.TN_STYLE_READY)window.TN_STYLE_READY()">
+<noscript><link rel="stylesheet" href="styles.css?v=18"></noscript>
 </head>
 <body>
 <div id="launchSplash" role="status" aria-live="polite"><div><img src="/icons/icon-192.png" alt=""><h1>Get Tefillin</h1><p id="launchMessage">טוען את המערכת… · Loading…</p><div class="launch-line" aria-hidden="true"></div><button id="launchRetry" type="button" hidden onclick="location.reload()">נסה שוב · Retry</button></div></div>
@@ -403,6 +403,7 @@
       <button type="button" class="dr-item" id="mHist"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-clock"/></svg><span data-i18n="my_requests">הבקשות שלי</span></button>
       <a class="dr-item" id="mWall" href="/wall"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-photo"/></svg><span data-i18n="wall_title">קיר התפילין</span></a>
       <a class="dr-item tz-link" id="mDonate" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-heart"/></svg><span data-i18n="menu_donate">תרומה / צדקה</span></a>
+      <button type="button" class="dr-item" id="locationPrivacySettings">פרטיות ושיתוף מיקום</button>
       <button type="button" class="dr-item" id="langBtn" aria-label="Language"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-globe"/></svg><span data-i18n="language">שפה</span><em class="dr-tag" id="langCode">HE</em></button>
       <button type="button" class="dr-item" id="mInstall" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-install"/></svg><span data-i18n="install">📲 התקן כאפליקציה</span></button>
       <button type="button" class="dr-item" id="mAbout"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"/></svg><span data-i18n="about">אודות</span></button>
@@ -413,6 +414,28 @@
       <button type="button" class="adm-link" id="admLink" data-i18n="admin_entry">כניסת ניהול</button>
     </div>
   </aside>
+
+
+  <div class="modal privacy-modal" id="locationPrivacyDialog" hidden>
+    <div class="modal-card privacy-card" role="dialog" aria-modal="true" aria-labelledby="locationPrivacyTitle" aria-describedby="locationPrivacyBody" dir="rtl" lang="he" tabindex="-1">
+      <span class="privacy-symbol" aria-hidden="true">⌖</span>
+      <h3 id="locationPrivacyTitle">לשתף שם ומיקום מדויק?</h3>
+      <div id="locationPrivacyBody">
+        <p>אפשר להשתמש בשירות גם בלי לשתף מיקום מדויק.</p>
+        <p><b>כן:</b> כשליח, שמך ומיקומך המדויק יוכלו להופיע למי שמחפש שליח קרוב, וגם למזמין שאישרת. כמזמין, שמך יופיע לשליחים ומיקומך המדויק ישותף עם השליח שקיבל את הקריאה.</p>
+        <p><b>לא:</b> לאחרים יוצגו רק אזור משוער ומזהה כללי, בלי שמך ובלי מיקומך המדויק. ההגעה תהיה לאזור בלבד ותצטרכו לתאם.</p>
+        <p>מיקום שהרשית למסור לשרת עדיין משמש להתאמה פנימית. טלפון נמסר לצד שקיבל את הקריאה לצורך תיאום. המפה העולמית נשארת משוערת ואנונימית גם אם מאשרים.</p>
+        <p class="fine">אפשר לשנות בכל עת בתפריט: "פרטיות ושיתוף מיקום". אישור הדפדפן לקבלת מיקום הוא נפרד. שינוי לא מוחק מידע שכבר נצפה או צולם.</p>
+      </div>
+      <p id="locationPrivacyState" class="privacy-state" role="status"></p>
+      <div class="privacy-actions">
+        <button type="button" class="btn dark" id="locationPrivacyCoarse">לא, אזור משוער בלבד</button>
+        <button type="button" class="btn outline" id="locationPrivacyExact">כן, לשתף שם ומיקום מדויק</button>
+      </div>
+      <p class="form-err" id="locationPrivacyError" role="alert"></p>
+      <button type="button" class="link" id="locationPrivacyClose" hidden>סגור בלי שינוי</button>
+    </div>
+  </div>
 
   <!-- my requests (on this device) -->
   <div class="modal" id="histModal" hidden>
@@ -475,7 +498,7 @@
 <script src="config.js?v=14"></script>
 <script src="i18n.js?v=14"></script>
 <script src="active-map.js?v=3"></script>
-<script src="app.js?v=25"></script>
+<script src="app.js?v=26"></script>
 <script src="/announcements.js?v=14"></script>
 </body>
 </html>
