@@ -148,6 +148,14 @@ function api(path,body){
   return fetch(path,{method:body?"POST":"GET",headers:body?{"content-type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined,credentials:"same-origin",cache:"no-store"})
     .then(function(r){if(r.status===401){location.href="/";throw new Error("auth")}return r.json()});
 }
+function confirmRecordRemoval(message,phone,run){
+ var old=document.getElementById('recordConfirm');if(old)old.remove();
+ var overlay=document.createElement('div');overlay.id='recordConfirm';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','אישור מחיקת נתוני רשומה');overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:#0009;display:flex;align-items:center;justify-content:center;padding:18px';
+ var card=document.createElement('div');card.style.cssText='background:white;padding:22px;border-radius:14px;width:100%;max-width:460px';var text=document.createElement('p');text.textContent=message;card.appendChild(text);
+ var label=document.createElement('label');label.textContent='לאישור המחיקה הקלידו את מספר הטלפון: '+phone;label.style.cssText='display:block;margin:14px 0';var input=document.createElement('input');input.type='text';input.inputMode='tel';input.dir='ltr';input.setAttribute('aria-label','מספר טלפון לאישור מחיקה');label.appendChild(input);card.appendChild(label);
+ var confirm=document.createElement('button');confirm.textContent='מחק את הרשומה ובקשותיה';confirm.className='act del';confirm.disabled=true;input.oninput=function(){confirm.disabled=input.value.replace(/\D/g,'')!==phone};
+ var cancel=document.createElement('button');cancel.textContent='ביטול';cancel.className='act';cancel.style.margin='8px';cancel.onclick=function(){overlay.remove()};confirm.onclick=function(){if(input.value.replace(/\D/g,'')!==phone)return;overlay.remove();run()};card.appendChild(confirm);card.appendChild(cancel);overlay.appendChild(card);document.body.appendChild(overlay);input.focus();overlay.onkeydown=function(e){if(e.key==='Escape')overlay.remove()};
+}
 var announcementDraft=null;
 function loadAnnouncements(){return api("/api/admin/announcements").then(function(j){if(!j.ok)return;$("anCounts").textContent="מכשירים רשומים להתראות: שלוחים "+j.shluchim_devices+" · שלוחים ומניחים "+j.all_devices;
  $("anHistory").textContent=(j.history||[]).slice().reverse().slice(0,5).map(function(a){return new Date(a.at).toLocaleString('he-IL')+" · "+(a.audience==='all'?'שלוחים ומניחים':'שלוחים')+" · "+({queued:'בתור',sending:'בשליחה',finished:'השליחה הסתיימה',interrupted:'השליחה נקטעה; לא נשלחה שוב אוטומטית'}[a.state]||a.state)+"\n"+a.text+"\nקיבלו אישור מספק ההתראות: "+a.accepted+" / "+a.total+" · נכשלו: "+a.failed}).join("\n\n");
@@ -184,7 +192,7 @@ function render(d){
     var row=document.createElement("div");row.className="photo-row";
     row.innerHTML='<div class="grow"><b>'+esc(dispPhone(x.phone))+"</b> · "+esc(x.name||"")+" · "+esc(x.role||"")+'<div class="muted">'+esc(x.note||"")+" · "+ago(x.at)+"</div></div>";
     var b=document.createElement("button");b.className="act del";b.textContent="מחק את כל המידע";b.onclick=function(){
-      if(confirm("למחוק לצמיתות את כל המידע המקושר לטלפון "+x.phone+"?"))api("/api/admin/deletion/done",{id:x.id}).then(function(j){toast(j.deleted?"נמחקו "+j.deleted+" רשומות":"סומן כבוצע");load()})};
+      confirmRecordRemoval("למחוק לצמיתות את כל המידע המקושר לטלפון "+x.phone+"?",String(x.phone).replace(/\D/g,""),function(){api("/api/admin/deletion/done",{id:x.id}).then(function(j){toast(j.deleted?"נמחקו "+j.deleted+" רשומות":"סומן כבוצע");load()})})};
     row.appendChild(b);dl.appendChild(row)});
 
   var sb=$("shTable").querySelector("tbody");sb.innerHTML="";
@@ -200,10 +208,8 @@ function render(d){
     var tr=document.createElement("tr");
     tr.innerHTML="<td><b>"+esc(o.name)+"</b></td><td dir=ltr>"+esc(dispPhone(o.phone))+"</td><td>"+(o.count||1)+"</td><td>"+ago(o.last_at)+"</td>";
     var td=document.createElement("td"),b=document.createElement("button");b.className="act del";b.textContent="מחיקת מניח ובקשותיו";
-    b.onclick=function(){if(!confirm("למחוק את "+o.name+" ("+o.phone+") ואת כל בקשותיו ותמונותיהן? המונים ההיסטוריים לא ישתנו. הפעולה בלתי הפיכה; מומלץ להוריד גיבוי קודם."))return;
-      var phone=String(o.phone).replace(/\D/g,"");
-      if(prompt("לאישור המחיקה הקלידו את מספר הטלפון:")!==phone)return;
-      b.disabled=true;api("/api/admin/orderer/delete",{phone:phone,confirm:"DELETE "+phone}).then(function(j){toast(j.ok?"המניח ובקשותיו נמחקו; המונים לא שונו":j.code==="busy"?"יש קריאה פעילה. יש לסיים או לבטל אותה תחילה":"המחיקה לא בוצעה");load()}).catch(function(){toast("המחיקה לא אושרה. בדקו חיבור ונסו שוב");b.disabled=false})};
+    b.onclick=function(){var phone=String(o.phone).replace(/\D/g,"");confirmRecordRemoval("למחוק את "+o.name+" ("+o.phone+") ואת כל בקשותיו ותמונותיהן? המונים ההיסטוריים לא ישתנו. הפעולה בלתי הפיכה; מומלץ להוריד גיבוי קודם.",phone,function(){
+      b.disabled=true;api("/api/admin/orderer/delete",{phone:phone,confirm:"DELETE "+phone}).then(function(j){toast(j.ok?"המניח ובקשותיו נמחקו; המונים לא שונו":j.code==="busy"?"יש קריאה פעילה. יש לסיים או לבטל אותה תחילה":"המחיקה לא בוצעה");load()}).catch(function(){toast("המחיקה לא אושרה. בדקו חיבור ונסו שוב");b.disabled=false})})};
     td.appendChild(b);tr.appendChild(td);ob.appendChild(tr)});
 
   var rb=$("rqTable").querySelector("tbody");rb.innerHTML="";
@@ -247,4 +253,4 @@ load();loadBulletin();setInterval(load,15000);
 </script>
 <script src="/vendor/leaflet.js"></script><script src="/admin-stands.js?v=15"></script>
 </body>
-</html>
+  </html>
