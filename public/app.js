@@ -59,7 +59,7 @@ function fit(points,maxZoom){
 /* ---------- screens ---------- */
 var SCREENS=["s-intro","s-home","s-locpick","s-match","s-none","s-waiting","s-route","s-arrived","s-done","s-vreg","s-vdash","s-vhours","s-vreq","s-vgo","s-vdone","s-vthanks"];
 var cur=null;
-function show(id){var same=id===cur;if(mapOnly&&!same)setMapOnly(false);cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);if(!(same&&s===id))el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
+function show(id){var same=id===cur;if(mapOnly&&!same)setMapOnly(false);cur=id;SCREENS.forEach(function(s){var el=$(s);el.hidden=(s!==id);if(!(same&&s===id))el.classList.remove("peek")});$("topbar").hidden=(id==="s-intro");$("locateBtn").hidden=(id==="s-intro"||id==="s-locpick");if(!same&&typeof closeDrawer==="function")closeDrawer();if(typeof sheetSync==="function")sheetSync();if(typeof chatSync==="function")chatSync()}
 function canMapOnly(){return cur==='s-home'||cur==='s-vdash'}
 function setMapOnly(on){on=!!on&&canMapOnly();mapOnly=on;$('app').classList.toggle('map-only',on);$('activeMapControls').hidden=!on;if(on){layer.clearLayers();document.activeElement&&document.activeElement.blur()}activeMap.show(on);sheetSync();setTimeout(function(){map.invalidateSize();if(!on){if(cur==='s-home')drawHome();else if(cur==='s-vdash')drawVolMap(false)}},80)}
 $('restoreCard').onclick=function(){setMapOnly(false)};$('allActiveVols').onclick=function(){activeMap.all()};
@@ -179,7 +179,7 @@ $("orderForm").onsubmit=function(e){e.preventDefault();
   if(name.length<2){whoShow(true);$("orderErr").textContent=t("err_first");$("reqName").focus();return}
   if(phone.replace(/\D/g,"").length<9){whoShow(true);$("orderErr").textContent=t("err_phone");$("reqPhone").focus();return}
   $("orderBtn").disabled=true;
-  api("POST","/api/request",{first_name:name,phone:phone,lat:U.pos[0],lng:U.pos[1],address:U.addr,device:DEVICE,loc_source:U.src,lang:LANG}).then(function(j){
+  api("POST","/api/request",{first_name:name,phone:phone,lat:U.pos[0],lng:U.pos[1],address:U.addr,device:DEVICE,loc_source:U.src,lang:LANG},V.me&&V.me.token).then(function(j){
     $("orderBtn").disabled=false;
     if(!j.ok){$("orderErr").textContent=errMsg(j);return}
     LS.set("me",{name:name,phone:phone});
@@ -214,7 +214,7 @@ function pollReq(){
     U.lastJ=j;
     if(st==="accepted"||st==="arrived")chatStart("r",{id:rq.id,token:rq.token,name:firstOf(j.shaliach),phone:j.shaliach&&j.shaliach.phone});
     if(st==="accepted"){if(prev!=="accepted"&&prev!==null){buzz();toast(t("accepted_toast",{name:firstOf(j.shaliach)}),3500)}renderRoute(j)}
-    else if(st==="arrived"){if(cur!=="s-arrived"&&!chatOpen()){buzz();renderArrived(j);show("s-arrived");drawRoute(j,true)}else if(chatOpen())U.arrivedPending=true}
+    else if(st==="arrived"){if(cur!=="s-arrived"&&!chatOpen()){buzz();renderArrived(j);show("s-arrived");drawRoute(j,true)}else if(chatOpen())U.arrivedPending=true;else if(cur==="s-arrived"){renderArrived(j);drawRoute(j,true)}}
     else if(st==="done"){var dr={id:rq.id,token:rq.token};endRequest();closeChat();loadConfig();show("s-done");phShow("r",dr);layer.clearLayers();if(U.pos)L.marker(U.pos,{icon:meIcon}).addTo(layer)}
     else if(st==="cancelled"){endRequest();closeChat();toast(t("cancelled"));goHome()}
   })
@@ -228,18 +228,18 @@ function drawRoute(j,noFit){
     if(!noFit||!U.fitted){fit([sp,U.pos],17);U.fitted=true}}
 }
 function renderRoute(j){
-  var s=j.shaliach;if(!s)return;var first=cur!=="s-route";
+  var s=j.shaliach;if(!s)return;var first=cur!=="s-route",privacyChanged=U.lastSharedExact!==!s.approximate;
   if(first&&chatOpen())return; // the chat is on top; the route screen refreshes when it closes
-  if(first||U.relang){U.relang=false;if(first){show("s-route");U.fitted=false}
+  if(first||U.relang||U.lastSharedExact!==!s.approximate){U.lastSharedExact=!s.approximate;U.relang=false;if(first){show("s-route");U.fitted=false}
     $("vcard").innerHTML=avatarHtml(s.name,null,s.photo)+'<div class="vc-main"><b>'+esc(s.name)+'</b><div class="vc-sub" dir="ltr">'+esc(dispPhone(s.phone))+'</div><span class="vc-tag">'+esc(t(s.transport))+' · '+esc(s.done_count?t("n_done",{n:s.done_count}):t("shaliach_word"))+'</span>'+speaksLine(s.langs)+'</div>';
     $("callSh").href=telHref(s.phone);$("waSh").href=waHref(s.phone,t("wa_req_text"));}
   $("etaLabel").textContent=t("name_on_way",{name:firstOf(s)});
   $("etaText").textContent=s.eta_min!=null?t("arrives_in",{n:s.eta_min}):t("waiting_sh_loc");
   $("etaDist").textContent=s.km!=null?fmtKm(s.km):"";
-  $("locAge").textContent=s.loc_age_s!=null&&s.loc_age_s>45?t("loc_age",{n:Math.round(s.loc_age_s/60)}):t("eta_note");
+  $("locAge").textContent=s.approximate?stText("מיקום משוער בלבד לפי בחירת השליח. יש לתאם הגעה.","Approximate area only, chosen by the volunteer. Coordinate arrival."):s.loc_age_s!=null&&s.loc_age_s>45?t("loc_age",{n:Math.round(s.loc_age_s/60)}):t("eta_note");
   // move pin smoothly
   if(s.lat!=null){var sp=[s.lat,s.lng];
-    if(first||!U.shMarker){drawRoute(j);U.shMarker=null;layer.eachLayer(function(l){if(l.options&&l.options.zIndexOffset===800)U.shMarker=l;if(l instanceof L.Polyline)U.line=l})}
+    if(first||privacyChanged||!U.shMarker){drawRoute(j);U.shMarker=null;layer.eachLayer(function(l){if(l.options&&l.options.zIndexOffset===800)U.shMarker=l;if(l instanceof L.Polyline)U.line=l})}
     else{animateTo(U.shMarker,sp);if(U.line)U.line.setLatLngs([sp,U.pos])}}
 }
 function animateTo(m,to){if(!m)return;var from=m.getLatLng(),t0=performance.now(),d=1500;
@@ -299,7 +299,7 @@ if($("vPhotoBtn")){$("vPhotoBtn").onclick=function(){$("vPhotoFile").click()};
   $("vPhotoFile").onchange=function(){vPhotoPicked(this.files&&this.files[0]);this.value=""}}
 $("regForm").onsubmit=function(e){e.preventDefault();$("regErr").textContent="";
   var tr=document.querySelector("input[name=tr]:checked");
-  var body={name:$("regName").value,phone:$("regPhone").value,city:$("regCity").value,transport:tr?tr.value:null,has_tefillin:V.editing?true:$("regTef").checked,langs:checkedLangs(),lang:LANG,tz:devTz()};
+  var body={device:DEVICE,name:$("regName").value,phone:$("regPhone").value,city:$("regCity").value,transport:tr?tr.value:null,has_tefillin:V.editing?true:$("regTef").checked,langs:checkedLangs(),lang:LANG,tz:devTz()};
   if(!body.langs.length)body.langs=[LANG];
   if(body.name.trim().length<2){$("regErr").textContent=t("err_name");return}
   if(body.phone.replace(/\D/g,"").length<9){$("regErr").textContent=t("err_phone");return}
@@ -309,7 +309,7 @@ $("regForm").onsubmit=function(e){e.preventDefault();$("regErr").textContent="";
   api("POST","/api/shaliach/register",body).then(function(j){$("regBtn").disabled=false;
     if(!j.ok){$("regErr").textContent=errMsg(j);return}
     V.me={token:j.token,name:j.shaliach.name};LS.set("sh",V.me);V.data={me:j.shaliach};
-    toast(t("registered"));renderDash()})
+    toast(t("registered"));syncLocationPrivacy().then(function(){if(locationPrivacyChoice===null)openLocationPrivacy();renderDash()})})
 };
 $("logoutBtn").onclick=function(){if(!confirm(t("confirm_logout")))return;var tok=V.me&&V.me.token;if(tok){api("POST","/api/shaliach/mode",{mode:"off",tz:devTz()},tok);api("POST","/api/shaliach/unpush",{},tok)}applyMode("off");LS.del("sh");V.me=null;V.data=null;openReg(false)};
 
@@ -575,18 +575,18 @@ function accept(id){
     V.ringing=null;toast(t("yours_toast"),3000);vPoll()})
 }
 function showJob(){
-  var jb=V.job;var name=jb.first_name;
+  var jb=V.job;var name=jb.first_name;var privacyChanged=V.lastJobExact!==!jb.approximate;V.lastJobExact=!jb.approximate;
   if(chatOpen()&&cur!=="s-vgo"&&cur!=="s-vdone")return;
   $("vReqLang").textContent=jb.lang?t("req_lang",{lang:langName(jb.lang)}):"";
   if(jb.status==="accepted"){
     var first=cur!=="s-vgo";show("s-vgo");
-    $("vGoLabel").textContent=t("on_way_to",{name:name});$("vEta").textContent=jb.eta_min!=null?t("eta_approx",{n:jb.eta_min}):t("locating");$("vDist").textContent=jb.km!=null?fmtKm(jb.km):"";
+    $("vGoLabel").textContent=t("on_way_to",{name:name});$("vEta").textContent=jb.eta_min!=null?t("eta_approx",{n:jb.eta_min}):t("locating");$("vDist").textContent=(jb.km!=null?fmtKm(jb.km):"")+(jb.approximate?stText(" · אזור משוער בלבד - יש לתאם", " · Approximate area only - coordinate arrival"):"");
     var ll=jb.lat+","+jb.lng;
     $("wazeBtn").href="https://waze.com/ul?ll="+ll+"&navigate=yes";$("gmapsBtn").href="https://www.google.com/maps/dir/?api=1&destination="+ll;
     $("callRq").href=telHref(jb.phone);$("waRq").href=waHref(jb.phone,t("wa_sh_text",{name:name}));
-    if(first)drawVolMap();else{if(V.myMarker&&V.pos)V.myMarker.setLatLng(V.pos);if(V.jobMarker)V.jobMarker.setLatLng([jb.lat,jb.lng])}
+    if(first||privacyChanged)drawVolMap();else{if(V.myMarker&&V.pos)V.myMarker.setLatLng(V.pos);if(V.jobMarker)V.jobMarker.setLatLng([jb.lat,jb.lng])}
   }else if(jb.status==="arrived"){
-    if(cur!=="s-vdone"){show("s-vdone");$("vAtTitle").textContent=t("you_arrived_to",{name:name});$("callRq2").href=telHref(jb.phone);drawVolMap()}
+    if(cur!=="s-vdone"||privacyChanged){show("s-vdone");$("vAtTitle").textContent=t("you_arrived_to",{name:name});$("callRq2").href=telHref(jb.phone);drawVolMap()}
   }
 }
 $("vArrived").onclick=function(){if(!V.job)return;api("POST","/api/shaliach/arrived",{id:V.job.id},V.me.token).then(function(j){if(!j.ok){toast(errMsg(j));}vPoll()})};
@@ -619,7 +619,7 @@ var QUICK={s:["omw","here","floor","down","late","thanks"],r:["coming","entrance
 function chatOpen(){return C.open}
 function chatSync(){if(C.open&&!C.id)closeChat()}
 function chatStart(role,o){
-  if(C.id===o.id&&C.role===role){C.name=o.name||C.name;C.phone=o.phone||C.phone;return}
+  if(C.id===o.id&&C.role===role){C.name=o.name||C.name;C.phone=o.phone||C.phone;if(C.open)$("chatTitle").textContent=t("chat_title",{name:C.name});return}
   chatEnd();C.role=role;C.id=o.id;C.token=o.token;C.name=o.name||"";C.phone=o.phone||"";C.seen=LS.get("seen_"+o.id)||0;
   chatFetch();C.poll=setInterval(chatFetch,3000);
 }
@@ -905,9 +905,46 @@ $("locateBtn").onclick=function(){
 };
 
 if(window.TN_LAUNCH_READY)window.TN_LAUNCH_READY();
+
+/* Location-sharing choice, separate from the browser GPS permission. */
+var locationPrivacyChoice=null,privacyReturnFocus=null,privacyBootResolve=null;
+function privacyAuth(){return V.me?V.me.token:U.req?U.req.token:null}
+function privacyBody(){return {device:DEVICE,request_id:!V.me&&U.req?U.req.id:undefined}}
+function syncLocationPrivacy(){
+ return api("POST","/api/location-privacy",Object.assign(privacyBody(),{read:true}),privacyAuth()).then(function(j){
+   if(j.ok){locationPrivacyChoice=typeof j.share_exact==="boolean"?j.share_exact:null;LS.set("location_privacy_v1",locationPrivacyChoice);updatePrivacyState();return j}
+   if(j._status===401&&V.me){LS.del("sh");V.me=null;return syncLocationPrivacy()}
+   if(j._status===401&&U.req){LS.del("req");U.req=null;return syncLocationPrivacy()}
+   locationPrivacyChoice=null;updatePrivacyState();return j;
+ });
+}
+function updatePrivacyState(){
+ $("locationPrivacyState").textContent=locationPrivacyChoice===true?"הבחירה הנוכחית: שיתוף שם ומיקום מדויק":locationPrivacyChoice===false?"הבחירה הנוכחית: אזור משוער בלבד, ללא שם":"עד לבחירה: לאחרים יוצג רק אזור משוער, ללא שם";
+ $("locationPrivacyClose").hidden=locationPrivacyChoice===null;
+}
+function openLocationPrivacy(){closeDrawer();privacyReturnFocus=document.activeElement;updatePrivacyState();$("locationPrivacyError").textContent="";$("locationPrivacyDialog").hidden=false;$("locationPrivacyCoarse").focus()}
+function closeLocationPrivacy(){if(locationPrivacyChoice===null)return;$("locationPrivacyDialog").hidden=true;if(privacyBootResolve){var next=privacyBootResolve;privacyBootResolve=null;next()}else try{privacyReturnFocus&&privacyReturnFocus.focus()}catch(e){}}
+function saveLocationPrivacy(exact){
+ $("locationPrivacyError").textContent="";$("locationPrivacyExact").disabled=$("locationPrivacyCoarse").disabled=true;
+ api("POST","/api/location-privacy",Object.assign(privacyBody(),{share_exact:exact}),privacyAuth()).then(function(j){
+  $("locationPrivacyExact").disabled=$("locationPrivacyCoarse").disabled=false;
+  if(!j.ok){$("locationPrivacyError").textContent="הבחירה לא נשמרה. בדקו את החיבור ונסו שוב. עד לשמירה, השרת לא ירחיב את השיתוף.";return}
+  locationPrivacyChoice=j.share_exact;LS.set("location_privacy_v1",locationPrivacyChoice);updatePrivacyState();closeLocationPrivacy();
+  toast(exact?"נשמר: שיתוף שם ומיקום מדויק":"נשמר: אזור משוער בלבד, ללא שם",4000);
+  if(V.me)vPoll();if(U.req)pollReq();else if(cur==="s-home")loadNearby(true);
+ });
+}
+$("locationPrivacySettings").onclick=openLocationPrivacy;
+$("locationPrivacyCoarse").onclick=function(){saveLocationPrivacy(false)};$("locationPrivacyExact").onclick=function(){saveLocationPrivacy(true)};$("locationPrivacyClose").onclick=closeLocationPrivacy;
+$("locationPrivacyDialog").addEventListener("keydown",function(e){
+ if(e.key==="Escape"){e.preventDefault();closeLocationPrivacy()}
+ if(e.key==="Tab"){var focusable=Array.prototype.filter.call(this.querySelectorAll("button"),function(b){return !b.hidden&&!b.disabled}),first=focusable[0],last=focusable[focusable.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}
+});
+function locationPrivacyBeforeBoot(){return syncLocationPrivacy().then(function(){if(locationPrivacyChoice!==null)return;return new Promise(function(resolve){privacyBootResolve=resolve;show("s-intro");openLocationPrivacy()})})}
+
 /* ---------- boot ---------- */
 var BOOT_REQ=null;try{BOOT_REQ=new URLSearchParams(location.search).get("r");if(BOOT_REQ)history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
-(function boot(){
+function boot(){
   if(V.me){ // resume shaliach state (availability needs a tap again after a reload: location + sound need a gesture)
         api("POST","/api/shaliach/poll",{v:6,available:false,lang:LANG},V.me.token).then(function(j){if(j.ok){V.data=j;
           if(j.me&&j.me.mode&&j.me.mode!=="off"){applyMode(j.me.mode);if(Notification_perm()==="granted")pushSubscribe(false);else pushEnsure(false)}
@@ -920,5 +957,6 @@ var BOOT_REQ=null;try{BOOT_REQ=new URLSearchParams(location.search).get("r");if(
   if(!LS.get("seen")&&!V.me){show("s-intro");return}
   if(V.me&&(location.hash!=="#user"||BOOT_REQ)){goVol();return}
   goHome();
-})();
+}
+locationPrivacyBeforeBoot().then(boot);
 })();
