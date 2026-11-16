@@ -365,6 +365,17 @@ async function main() {
     r=await j("GET","/api/admin/export",null,null,{cookie});
     check("export hides notification signing private key",!r.j.settings.push_signing&&!r.j.announcement_devices);
 
+    const cachedAsset=await fetch(BASE+"/app.js",{headers:{"accept-encoding":"gzip"}});
+    check("static text compressed",cachedAsset.headers.get("content-encoding")==="gzip");
+    const cached304=await fetch(BASE+"/app.js",{headers:{"if-none-match":cachedAsset.headers.get("etag")}});
+    check("unchanged static asset returns 304",cached304.status===304);
+    const headAsset=await fetch(BASE+"/app.js",{method:"HEAD"});
+    check("HEAD static response has no body",(await headAsset.text())==="");
+    r=await j("GET","/api/admin/health");check("backup diagnostics admin only",r.status===401);
+    r=await j("GET","/api/admin/health",null,null,{cookie});check("backup diagnostics available",r.j.ok&&typeof r.j.backup.pending==="boolean");
+    for(let i=0;i<21;i++)r=await j("POST","/api/admin/login",{code:"not-the-admin"});
+    check("login attempts rate-limited",r.status===429);
+
     /* push key endpoint */
     r = await j("GET", "/api/push/key");
     check("push key present", r.j && typeof r.j.key === "string" && r.j.key.length > 20, r.j);

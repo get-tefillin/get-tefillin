@@ -32,7 +32,7 @@ var DEVICE=LS.get("device");if(!DEVICE){DEVICE=randHex(12);LS.set("device",DEVIC
 
 function api(method,path,body,token){
   var h={"content-type":"application/json"};if(token)h["x-token"]=token;
-  return fetch(path,{method:method,headers:h,body:body?JSON.stringify(body):undefined,cache:"no-store"}).then(function(r){
+  return fetch(path,{method:method,headers:h,body:body?JSON.stringify(body):undefined,cache:"no-store",signal:AbortSignal.timeout(15000)}).then(function(r){
     return r.json().catch(function(){return{ok:false,code:"server"}}).then(function(j){j._status=r.status;return j})
   }).catch(function(){return{ok:false,code:"offline",_status:0}})
 }
@@ -480,6 +480,7 @@ document.addEventListener("pointerdown",function(){unlockAudio()},{once:true});
 function startVPoll(){if(V.poll)return;vPoll();V.poll=setInterval(vPoll,4000)}
 function stopVPoll(){clearInterval(V.poll);V.poll=null}
 function vPoll(){
+  if(document.hidden&&!V.job)return Promise.resolve();
   if(!V.me)return Promise.resolve();
   var body={v:6,available:V.avail||!!V.job,lang:LANG};
   if((V.mode!=="off"||V.job)&&V.pos&&Date.now()-V.posAt<60000){body.lat=V.pos[0];body.lng=V.pos[1];body.acc=V.acc}

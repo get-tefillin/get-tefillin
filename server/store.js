@@ -44,18 +44,20 @@ class Store {
     if (!remote.ENABLED) return;
     try {
       const raw = await remote.loadDb();
+      if (!raw) throw new Error("remote database missing; refusing empty replacement");
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
+        if (parsed && parsed.shluchim && parsed.requests && parsed.counters && !Array.isArray(parsed.shluchim)) {
           Object.keys(this.db).forEach(function (k) { delete this.db[k]; }, this);
           Object.assign(this.db, parsed); // keep the same object: server.js holds `const db = store.db`
           this._applyDefaults();
           this._writeNow(true);
           console.log("Remote db restored (" + raw.length + " bytes)");
-        }
+        } else { throw new Error("remote database invalid"); }
       }
     } catch (e) {
       console.error("remote db restore failed:", e.message);
+      throw e;
     }
   }
   save() {

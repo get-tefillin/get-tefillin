@@ -11,6 +11,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const zlib = require("zlib");
 const { Store } = require("./store");
 const remote = require("./remote");
 const push = require("./push");
@@ -57,7 +58,7 @@ function loadConfig() {
   if (changed) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
     console.log("=== Get Tefillin replica: new config.json created ===");
-    console.log("=== Admin code (keep private): " + cfg.admin_code + " ===");
+    console.log("=== Admin credentials stored privately ===");
   }
   return cfg;
 }
@@ -263,6 +264,7 @@ const chatRate = {};
 const ipRate = {};
 function ipLimited(ip) {
   ipRate[ip] = (ipRate[ip] || []).filter(function (t) { return now() - t < 600000; });
+  if(Object.keys(ipRate).length>10000)delete ipRate[Object.keys(ipRate)[0]];
   if (ipRate[ip].length >= 8) return true;
   ipRate[ip].push(now());
   return false;
@@ -350,10 +352,14 @@ async function api(req, res, pathname, query) {
       const busy = new Set(Object.values(db.requests).filter(r => r.status === "accepted" || r.status === "arrived").map(r => r.shaliach_id));
       const points = Object.values(db.shluchim).filter(sh => sh.mode === "available" && shaliachFresh(sh) && now() - (sh.loc_at || 0) < 120000 && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
         .map(sh => ({lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2)}));
-      worldSnapshot = {at: now(), points: points};
+      worldSnapshot = {at: now(), points: points};worldResponses.clear();
     }
-    const clusters = require("./world-map").view(worldSnapshot.points, b, z);
-    return json(res, 200, {ok: true, at: worldSnapshot.at, total: worldSnapshot.points.length, clusters: clusters.slice(0, 1000), limited: clusters.length > 1000, refresh_seconds: 15}, {"cache-control":"public, max-age=5, s-maxage=10"});
+    const cacheKey=z+":"+b.join(",");let result=worldResponses.get(cacheKey);
+    if(!result){const clusters=require("./world-map").view(worldSnapshot.points,b,z);
+      result={ok:true,at:worldSnapshot.at,total:worldSnapshot.points.length,clusters:clusters.slice(0,1000),limited:clusters.length>1000,refresh_seconds:15};
+      if(worldResponses.size>=128)worldResponses.delete(worldResponses.keys().next().value);worldResponses.set(cacheKey,result);
+    }
+    return json(res,200,result,{"cache-control":"public, max-age=5, s-maxage=10"});
   }
 
   /* GET /api/nearby */
@@ -447,7 +453,7 @@ async function api(req, res, pathname, query) {
     const p = { id: rid(12), req_id: r.id, role: role, w: parseInt(query.w || "0", 10) || 0, h: parseInt(query.h || "0", 10) || 0, approved: false, at: now(), file: "" };
     p.file = p.id + ".jpg";
     fs.writeFileSync(path.join(store.photoDir, p.file), body);
-    remote.putPhoto(p.file, body);
+    await remote.putPhoto(p.file, body);
     db.photos[p.id] = p; store.save();
     return json(res, 200, { ok: true, id: p.id });
   }
@@ -536,7 +542,9 @@ async function api(req, res, pathname, query) {
     if (sub === "photo" && seg[3] && req.method === "GET") {
       const owner = Object.values(db.shluchim).find(function (s) { return s.photo === seg[3]; });
       const f = owner ? path.join(store.photoDir, "sh-" + owner.photo + ".jpg") : null;
-      if (!f || !fs.existsSync(f)) return fail(res, "not_found", 404);
+      if (!f) return fail(res,"not_found",404);
+      if(!fs.existsSync(f)){const buf=await remote.getPhoto("sh-"+owner.photo+".jpg");if(buf)fs.writeFileSync(f,buf);}
+      if(!fs.existsSync(f))return fail(res,"not_found",404);
       res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=300" });
       return fs.createReadStream(f).pipe(res);
     }
@@ -552,10 +560,11 @@ async function api(req, res, pathname, query) {
       const body = await readBody(req, PHOTO_MAX_BYTES + 1, true);
       if (body.length > PHOTO_MAX_BYTES) return fail(res, "photo_big");
       if (body.length < 100 || body[0] !== 0xff || body[1] !== 0xd8) return fail(res, "photo_type");
+      const newPhoto=rid(12);await remote.putPhoto("sh-"+newPhoto+".jpg",body);
       if (sh.photo) { try { fs.unlinkSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg")); } catch (e) {} remote.delPhoto("sh-" + sh.photo + ".jpg"); }
-      sh.photo = rid(12);
+      sh.photo = newPhoto;
       fs.writeFileSync(path.join(store.photoDir, "sh-" + sh.photo + ".jpg"), body);
-      remote.putPhoto("sh-" + sh.photo + ".jpg", body);
+
       store.save();
       return json(res, 200, { ok: true, photo: sh.photo });
     }
@@ -615,7 +624,8 @@ async function api(req, res, pathname, query) {
 
     if (sub === "poll" && req.method === "POST") {
       const b = await readBody(req);
-      sh.last_seen = now();
+      const checkpointPresence=!sh.last_seen || now()-sh.last_seen>=60000;
+      if(checkpointPresence)sh.last_seen=now();
       if (isFinite(+b.lat) && isFinite(+b.lng)) { sh.lat = +b.lat; sh.lng = +b.lng; sh.loc_at = now(); }
       // screen open again after an offline downgrade
       if (b.available === true && sh.mode === "standby") { /* stays standby until the shaliach taps */ }
@@ -630,7 +640,7 @@ async function api(req, res, pathname, query) {
           const k = sh.lat != null ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
           return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, age_s: Math.round((now() - r.created_at) / 1000), lang: r.lang || null };
         });
-      store.save();
+      if(checkpointPresence)store.save();
       return json(res, 200, { ok: true, me: meView(sh), waiting: sh.mode === "off" ? [] : waiting, ringing: ringing, job: job ? jobView(job, sh) : null });
     }
 
@@ -849,11 +859,7 @@ async function api(req, res, pathname, query) {
        so testing can never block the real 1st-of-month send. */
     if (sub === "report" && seg[3] === "test" && req.method === "POST") {
       try {
-        const keep = db.settings.last_sent_month;
-        db.settings.last_sent_month = null; // bypass guard for the forced send
         const r = await maybeSendMonthlyReport(true, false);
-        db.settings.last_sent_month = keep;
-        store.save();
         return json(res, 200, r);
       } catch (e) {
         console.error("report test failed:", e.message);
@@ -903,6 +909,7 @@ async function api(req, res, pathname, query) {
       return json(res, 200, { ok: true });
     }
 
+    if(sub==="health" && req.method==="GET")return json(res,200,{ok:true,uptime_seconds:Math.floor(process.uptime()),inflight:inflight,memory_mb:Math.round(process.memoryUsage().rss/1048576),backup:{enabled:remote.ENABLED,pending:remote.health.pending,last_ok:remote.health.last_ok,last_error:remote.health.last_error}});
     if (sub === "announcements" && req.method === "GET") {
       return json(res,200,{ok:true,shluchim_devices:announcements.targets(db,"shluchim").length,all_devices:announcements.targets(db,"all").length,
         history:(db.settings.announcements||[]).slice(-20).map(a=>({id:a.id,audience:a.audience,text:a.text,link:a.link,at:a.at,state:a.state,total:a.total,accepted:a.accepted,failed:a.failed}))});
@@ -1023,6 +1030,7 @@ async function api(req, res, pathname, query) {
 }
 
 let worldSnapshot = null;
+const worldResponses=new Map();
 
 /* ---------------- static files ---------------- */
 const MIME = {
@@ -1035,7 +1043,7 @@ function serveStatic(req, res, pathname) {
   let p = decodeURIComponent(pathname);
   if (p.endsWith("/")) p += "index.html";
   const file = path.normalize(path.join(PUBLIC, p));
-  if (file.indexOf(PUBLIC) !== 0) { res.writeHead(403); return res.end(); }
+  if (!file.startsWith(PUBLIC + path.sep)) { res.writeHead(403); return res.end(); }
   fs.stat(file, function (err, st) {
     if (err || !st.isFile()) {
       // unknown non-file paths fall back to the app shell only for navigations
@@ -1043,21 +1051,42 @@ function serveStatic(req, res, pathname) {
       return res.end("Not found");
     }
     const ext = path.extname(file).toLowerCase();
-    const headers = { "content-type": MIME[ext] || "application/octet-stream", "content-length": st.size };
+    const etag='"'+st.size.toString(16)+'-'+Math.floor(st.mtimeMs).toString(16)+'"';
+    const headers = { "content-type": MIME[ext] || "application/octet-stream", "content-length": st.size, "etag":etag, "vary":"Accept-Encoding" };
+    if(req.headers["if-none-match"]===etag){res.writeHead(304,{etag:etag});return res.end()}
+    const gzip=/gzip/.test(req.headers["accept-encoding"]||"") && st.size>1024 && [".html",".js",".css",".json",".svg",".webmanifest"].includes(ext);
+    if(gzip){delete headers["content-length"];headers["content-encoding"]="gzip"}
     // sw.js must always revalidate; versioned assets can be cached hard
     headers["cache-control"] = (path.basename(file) === "sw.js" || ext === ".html") ? "no-cache" : "public, max-age=86400";
     res.writeHead(200, headers);
-    fs.createReadStream(file).pipe(res);
+    if(req.method==="HEAD")return res.end();
+    const stream=fs.createReadStream(file);stream.on('error',()=>res.destroy());
+    if(gzip)stream.pipe(zlib.createGzip()).pipe(res);else stream.pipe(res);
   });
 }
 
+let inflight=0;
+const requestBuckets=new Map();
+function limited(key,max,windowMs){const t=now();let b=requestBuckets.get(key);if(!b||t-b.at>windowMs){if(requestBuckets.size>=10000)requestBuckets.delete(requestBuckets.keys().next().value);b={at:t,n:0};requestBuckets.set(key,b)}return ++b.n>max}
+setInterval(()=>{const t=now();for(const [k,v] of requestBuckets)if(t-v.at>600000)requestBuckets.delete(k);for(const k in ipRate)if(!ipRate[k].length||t-ipRate[k][ipRate[k].length-1]>600000)delete ipRate[k];for(const k in chatRate)if(!chatRate[k].length||t-chatRate[k][chatRate[k].length-1]>60000)delete chatRate[k]},60000).unref();
 const server = http.createServer(async function (req, res) {
+  res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("Referrer-Policy","strict-origin-when-cross-origin");
+  if(inflight>=64){res.writeHead(503,{"Retry-After":"5"});return res.end('Busy, retry shortly')}
+  inflight++;let released=false;const release=()=>{if(!released){released=true;inflight--}};res.once('finish',release);res.once('close',release);
+  if(req.url.length>4096){res.writeHead(414);return res.end()}
+
   const u = new URL(req.url, "http://x");
   const pathname = u.pathname;
   const query = {};
   u.searchParams.forEach(function (v, k) { query[k] = v; });
   try {
-    if (pathname.indexOf("/api/") === 0) return await api(req, res, pathname, query);
+    if(pathname==="/healthz")return json(res,200,{ok:true});
+    if (pathname.indexOf("/api/") === 0) {
+      const addr=String(req.headers['x-forwarded-for']||req.socket.remoteAddress).split(',')[0].trim();
+      const key=(pathname==='/api/admin/login'?addr:(token(req)?crypto.createHash('sha256').update(token(req)).digest('hex'):addr))+':'+(pathname==='/api/admin/login'?'login':'api');
+      if(limited(key,pathname==='/api/admin/login'?20:1200,pathname==='/api/admin/login'?600000:60000)){res.setHeader('Retry-After','60');return fail(res,'rate',429)}
+      return await api(req, res, pathname, query);
+    }
     if (pathname === "/admin" || pathname === "/admin/") {
       if (!sessionOk(req)) { res.writeHead(302, { location: "/" }); return res.end(); }
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
@@ -1082,6 +1111,8 @@ const server = http.createServer(async function (req, res) {
   }
 });
 
+
+server.requestTimeout=20000;server.headersTimeout=15000;server.keepAliveTimeout=5000;server.maxRequestsPerSocket=1000;
 
 /* ---------------- monthly report email (Brevo) ----------------
    On the 1st of each month around 09:00 (Asia/Jerusalem), email last month's
@@ -1134,8 +1165,9 @@ async function maybeSendMonthlyReport(force, markSent) {
   if (!BREVO_API_KEY) return { ok: false, skipped: "no_key" };
   const to = db.settings && db.settings.report_email;
   if (!to) return { ok: false, skipped: "no_recipient" };
-  const prev = monthKey(now() - 7 * 86400000);
-  if (db.settings.last_sent_month === prev) return { ok: false, skipped: "already_sent", month: prev };
+  const ilNow=ilParts(); const prevDate=new Date(Date.UTC(ilNow.y,ilNow.m-2,15));
+  const prev=prevDate.toISOString().slice(0,7);
+  if (!force && db.settings.last_sent_month === prev) return { ok: false, skipped: "already_sent", month: prev };
   if (!force) {
     const il = ilParts();
     if (il.d !== 1 || il.h < 9) return { ok: false, skipped: "not_time", month: prev };
@@ -1150,7 +1182,8 @@ async function maybeSendMonthlyReport(force, markSent) {
 }
 setInterval(function () { maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); }); }, 30 * 60000);
 
-store.restore().catch(function () {}).then(function () {
+async function safeRestore(){for(let i=0;i<3;i++){try{await store.restore();return}catch(e){if(i===2)throw e;await new Promise(r=>setTimeout(r,1000*(i+1)))}}}
+safeRestore().then(function () {
   if (db.settings.push_signing) CFG.vapid=db.settings.push_signing;
   else { db.settings.push_signing=CFG.vapid; store.save(); }
   (db.settings.announcements||[]).forEach(a=>{if(a.state==="queued"||a.state==="sending")a.state="interrupted"});
@@ -1159,6 +1192,7 @@ store.restore().catch(function () {}).then(function () {
     console.log("Get Tefillin replica listening on http://localhost:" + PORT);
     console.log("Admin page: /admin (code in config.json)");
   });
-});
-process.on("SIGINT", function () { store.flush(); process.exit(0); });
-process.on("SIGTERM", function () { store.flush(); process.exit(0); });
+}).catch(()=>{console.error("Startup paused: remote data unavailable; no empty overwrite");process.exit(1)});
+let stopping=false;
+async function shutdown(){if(stopping)return;stopping=true;server.close();store.flush();await Promise.race([remote.flush(),new Promise(r=>setTimeout(r,8000))]);process.exit(0)}
+process.on("SIGINT",shutdown);process.on("SIGTERM",shutdown);
