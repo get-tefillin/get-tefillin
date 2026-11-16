@@ -1,0 +1,7 @@
+'use strict';
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const source=fs.readFileSync(require('path').join(__dirname,'../server/server.js'),'utf8');
+const fn=source.slice(source.indexOf('async function maybeSendMonthlyReport('),source.indexOf('setInterval(function () { maybeSendMonthlyReport'));
+let sends=0,saves=0;const db={settings:{report_email:'retained@example.com',last_sent_month:'2026-10',report_paused:true},counters:{total_done:22}};
+const context={db,BREVO_API_KEY:'mock-present',ilParts:()=>({y:2026,m:12,d:1,h:9}),Date,sendReportEmail:async()=>{sends++},reportTextFor:()=>'',store:{save(){saves++}},console};vm.createContext(context);vm.runInContext(fn,context);
+(async()=>{const before=JSON.stringify(db);for(const force of [false,true])assert.equal((await context.maybeSendMonthlyReport(force,false)).skipped,'paused');assert.equal(sends,0);assert.equal(JSON.stringify(db),before);db.settings.report_paused=false;assert((await context.maybeSendMonthlyReport(false)).ok);assert.equal(sends,1);assert.equal(saves,1);db.settings.report_paused=true;assert.equal((await context.maybeSendMonthlyReport(true)).skipped,'paused');assert.equal(sends,1);assert.equal(db.settings.report_email,'retained@example.com');console.log('PASS paused automatic/manual reports make zero sends, retain settings and totals, and can be re-enabled (mock only)')})().catch(e=>{console.error(e);process.exit(1)});
