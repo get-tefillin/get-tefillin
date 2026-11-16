@@ -27,7 +27,7 @@ const CONFIG_FILE = path.join(ROOT, "config.json");
 const ADMIN_HTML = fs.readFileSync(path.join(__dirname, "admin.html"), "utf8");
 
 const RING_SECONDS = 60;        // how long a request rings
-const RING_RADIUS_KM = 12;      // how far we look for shluchim
+const RING_RADIUS_KM = 25;      // how far we look for shluchim
 const RING_MAX = 5;             // how many shluchim ring at once
 const NEARBY_RADIUS_KM = 25;    // requester "near you" list
 const LOC_FRESH_MS = 30 * 60000;// shaliach location is usable for 30 min
@@ -155,11 +155,11 @@ function nearbyCard(sh, pos) {
   return { name: sh.name, lat: sh.lat, lng: sh.lng, km: Math.round(k * 100) / 100, eta_min: etaMin(k, sh.transport), transport: sh.transport, langs: sh.langs || [], photo: sh.photo || null };
 }
 function shaliachFresh(sh) {
-  return sh.lat != null && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
+  return Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
 }
 function liveShluchim(pos, radiusKm) {
   return Object.values(db.shluchim)
-    .filter(function (sh) { return sh.mode !== "off" && shaliachFresh(sh); })
+    .filter(function (sh) { return sh.mode !== "off" && shaliachFresh(sh) && alertState(sh).alerts && !activeJob(sh.id); })
     .map(function (sh) { return { sh: sh, km: km(pos, [sh.lat, sh.lng]) }; })
     .filter(function (x) { return x.km <= radiusKm; })
     .sort(function (a, b) { return a.km - b.km; });
@@ -183,6 +183,7 @@ function startRing(req) {
   req.ring_started = now();
   req.candidates = ringCandidates(req);
   req.notified = req.candidates.length;
+  req.screen_seen={};req.push_accepted=0;req.push_failed=0;
   // background alerts (web push) for candidates with subscriptions
   req.candidates.forEach(function (sid) {
     const sh = db.shluchim[sid];
@@ -190,7 +191,7 @@ function startRing(req) {
     if (!alertState(sh).alerts) return;
     push.sendToShaliach(CFG.vapid, sh, { type: "req", id: req.id, title: "Get Tefillin", body: "בקשת תפילין חדשה בקרבתך", url: "/?r=" + req.id + "#vol" }, CFG.contact, function (gone) {
       sh.push = (sh.push || []).filter(function (s) { return s.endpoint !== gone.endpoint; }); store.save();
-    });
+    }).then(function(accepted){req.push_accepted=(req.push_accepted||0)+accepted;req.push_failed=(req.push_failed||0)+Math.max(0,(sh.push||[]).length-accepted);store.save()}).catch(function(){req.push_failed=(req.push_failed||0)+1;store.save()});
   });
 }
 function ringLeft(req) {
@@ -200,7 +201,7 @@ function ringLeft(req) {
 
 /* request views */
 function reqViewForRequester(r) {
-  const out = { ok: true, status: r.status, lat: r.lat, lng: r.lng, notified: r.notified || 0, ring_left_s: ringLeft(r) };
+  const out = { ok: true, status: r.status, lat: r.lat, lng: r.lng, notified: r.notified || 0, screen_seen: Object.keys(r.screen_seen||{}).length, push_accepted:r.push_accepted||0, push_failed:r.push_failed||0, ring_left_s: ringLeft(r) };
   if (r.shaliach_id && db.shluchim[r.shaliach_id]) {
     const sh = db.shluchim[r.shaliach_id];
     const k = sh.lat != null ? km([r.lat, r.lng], [sh.lat, sh.lng]) : null;
@@ -228,7 +229,7 @@ function meView(sh) {
     name: sh.name, phone: sh.phone, city: sh.city || "", transport: sh.transport, langs: sh.langs || [],
     mode: sh.mode, hours: sh.hours || { on: false, days: [null, null, null, null, null, null, null] }, tz: sh.tz || "Asia/Jerusalem",
     alerts: a.alerts, alerts_why: a.alerts ? undefined : a.alerts_why, override_until: sh.override_until || undefined,
-    push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
+    location_ready: shaliachFresh(sh),location_age_s:sh.loc_at?Math.round((now()-sh.loc_at)/1000):null,push_devices: (sh.push || []).length, done_count: sh.done_count || 0, month_count: shMonth(sh), photo: sh.photo || null
   };
 }
 
@@ -639,17 +640,24 @@ async function api(req, res, pathname, query) {
       // screen open again after an offline downgrade
       if (b.available === true && sh.mode === "standby") { /* stays standby until the shaliach taps */ }
       const job = activeJob(sh.id);
+      let dispatchChanged=false;
+      if(!job&&sh.mode!=="off"&&shaliachFresh(sh)&&alertState(sh).alerts){
+        Object.values(db.requests).filter(r=>r.status==="open"&&ringLeft(r)>0&&!(r.declined||{})[sh.id]&&km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM).forEach(r=>{
+          r.candidates=r.candidates||[];
+          if(!r.candidates.includes(sh.id)&&r.candidates.length<RING_MAX){r.candidates.push(sh.id);r.notified=r.candidates.length;dispatchChanged=true;}
+        });
+      }
       const ringing = Object.values(db.requests)
-        .filter(function (r) { return r.status === "open" && ringLeft(r) > 0 && (r.candidates || []).indexOf(sh.id) >= 0 && !(r.declined && r.declined[sh.id]) && sh.mode !== "off"; })
-        .map(function (r) { return ringItem(r, sh); });
+        .filter(function (r) { return r.status === "open" && ringLeft(r) > 0 && (r.candidates || []).indexOf(sh.id) >= 0 && !(r.declined && r.declined[sh.id]) && sh.mode !== "off" && !job && shaliachFresh(sh) && alertState(sh).alerts && km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM; })
+        .map(function (r) { if(!(r.screen_seen||{})[sh.id]){r.screen_seen=r.screen_seen||{};r.screen_seen[sh.id]=now();dispatchChanged=true;}return ringItem(r, sh); });
       const waiting = Object.values(db.requests)
-        .filter(function (r) { return r.status === "waiting" && !(r.declined && r.declined[sh.id]); })
+        .filter(function (r) { return (r.status === "waiting" || (r.status==="open"&&ringLeft(r)===0)) && now()-r.created_at<24*3600000 && !job && sh.mode!=="off" && shaliachFresh(sh) && alertState(sh).alerts && km([sh.lat,sh.lng],[r.lat,r.lng])<=RING_RADIUS_KM && !(r.declined && r.declined[sh.id]); })
         .sort(function (a, b2) { return a.created_at - b2.created_at; }).slice(0, 20)
         .map(function (r) {
           const k = sh.lat != null ? km([sh.lat, sh.lng], [r.lat, r.lng]) : null;
           return { id: r.id, first_name: r.first_name, km: k == null ? null : Math.round(k * 100) / 100, age_s: Math.round((now() - r.created_at) / 1000), lang: r.lang || null };
         });
-      if(checkpointPresence)store.save();
+      if(checkpointPresence||dispatchChanged)store.save();
       return json(res, 200, { ok: true, me: meView(sh), waiting: sh.mode === "off" ? [] : waiting, ringing: ringing, job: job ? jobView(job, sh) : null });
     }
 
@@ -933,6 +941,7 @@ async function api(req, res, pathname, query) {
       const b=await readBody(req);if(b.confirm!=="DELETE STAND "+b.id)return fail(res,"confirmation",400);
       if(typeof b.id!=="string"||!Object.prototype.hasOwnProperty.call(db.stands||{},b.id))return fail(res,"not_found",404);delete db.stands[b.id];store.save();return json(res,200,{ok:true});
     }
+    if(sub==="dispatch"&&req.method==="GET")return json(res,200,{ok:true,radius_km:RING_RADIUS_KM,shluchim:Object.values(db.shluchim).map(sh=>({id:sh.id,name:sh.name,mode:sh.mode,location_ready:shaliachFresh(sh),push_devices:(sh.push||[]).length,alerts:alertState(sh).alerts,busy:!!activeJob(sh.id)})),requests:Object.values(db.requests).filter(r=>r.status==="open"||r.status==="waiting").map(r=>({id:r.id,status:r.status,candidates:(r.candidates||[]).length,screen_seen:Object.keys(r.screen_seen||{}).length,push_accepted:r.push_accepted||0,push_failed:r.push_failed||0,created_at:r.created_at}))});
     if(sub==="health" && req.method==="GET")return json(res,200,{ok:true,uptime_seconds:Math.floor(process.uptime()),inflight:inflight,memory_mb:Math.round(process.memoryUsage().rss/1048576),backup:{enabled:remote.ENABLED,pending:remote.health.pending,last_ok:remote.health.last_ok,last_error:remote.health.last_error}});
     if (sub === "announcements" && req.method === "GET") {
       return json(res,200,{ok:true,shluchim_devices:announcements.targets(db,"shluchim").length,all_devices:announcements.targets(db,"all").length,
