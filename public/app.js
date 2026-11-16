@@ -187,7 +187,7 @@ function showMatching(notified,left){
   U.notified=notified;dispatchMessage({notified:notified});
   setMatchTimer(left);
 }
-function dispatchMessage(j){var he=LANG==='he'||LANG==='yi',n=j.notified||0,seen=j.screen_seen||0,push=j.push_accepted||0;$('matchMsg').textContent=seen?(he?'הבקשה הוצגה במסך של '+seen+' שלוחים. ממתינים לאישור.':'Request appeared on '+seen+' volunteer screens. Waiting for acceptance.'):(push?(he?'שירות ההתראות קיבל '+push+' התראות. טרם התקבל אישור משליח.':'Push service accepted '+push+' alerts. No volunteer has accepted yet.'):(n?(he?'נמצאו '+n+' שלוחים מתאימים. עדיין אין אישור שהבקשה הוצגה להם.':n+' eligible volunteers found. No screen receipt yet.'):(he?'הבקשה נשמרה, אך אין כרגע שליח עם מיקום עדכני באזור. לא נשלחה התראה לטלפון.':'Request saved, but no volunteer with a recent location is eligible nearby. No phone alert was sent.')))}
+function dispatchMessage(j){var he=LANG==='he'||LANG==='yi',n=j.notified||0,seen=j.screen_seen||0,push=j.push_accepted||0;$('matchMsg').textContent=seen?(he?'הבקשה הוצגה במסך של '+seen+' שלוחים. ממתינים לאישור.':'Request appeared on '+seen+' volunteer screens. Waiting for acceptance.'):(push?(he?'שירות ההתראות קיבל '+push+' התראות. טרם התקבל אישור משליח.':'Push service accepted '+push+' alerts. No volunteer has accepted yet.'):(n?(he?'נמצאו '+n+' שלוחים מתאימים. עדיין אין אישור שהבקשה הוצגה להם.':n+' eligible volunteers found. No screen receipt yet.'):(he?'הבקשה נשמרה, אך אין כרגע שליח מתאים עם מיקום עדכני או אזור פעילות קבוע כאן. לא נשלחה התראה לטלפון.':'Request saved, but no volunteer with a recent location or fixed coverage area is eligible here. No phone alert was sent.')))}
 function setMatchTimer(left){var el=$("matchTimer");el.style.transition="none";el.style.width=Math.max(0,left/60*100)+"%";void el.offsetWidth;el.style.transition="width "+left+"s linear";el.style.width="0%"}
 function startReqPoll(){stopReqPoll();clearInterval(U.nearT);pollReq();U.poll=setInterval(pollReq,3000);startReqWatch()}
 function stopReqPoll(){clearInterval(U.poll);U.poll=null;if(U.watch!=null&&navigator.geolocation){navigator.geolocation.clearWatch(U.watch);U.watch=null}}
@@ -373,7 +373,7 @@ function setMode(m){
   if(m!=="off")pushEnsure(false);
   if(cur==="s-vdash")renderDash();
 }
-function mergeMe(j){if(!V.data)V.data={};var me=V.data.me||(V.data.me={});["mode","hours","tz","alerts","alerts_why","override_until","push_devices"].forEach(function(k){if(k in j)me[k]=j[k]})}
+function mergeMe(j){if(!V.data)V.data={};var me=V.data.me||(V.data.me={});["mode","hours","tz","alerts","alerts_why","override_until","push_devices","coverage"].forEach(function(k){if(k in j)me[k]=j[k]})}
 function devTz(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"Asia/Jerusalem"}catch(e){return "Asia/Jerusalem"}}
 function minHM(n){n=((n%1440)+1440)%1440;return ("0"+Math.floor(n/60)).slice(-2)+":"+("0"+(n%60)).slice(-2)}
 function hoursSummary(h){
@@ -389,8 +389,9 @@ function renderModeUI(m){
   $("modeDesc").textContent=t(V.mode==="off"?"desc_off":V.mode==="standby"?"desc_standby":"desc_avail");$("statusCard").setAttribute("data-mode",V.mode);$("scTitle").textContent=t(V.mode==="off"?"sc_off":V.mode==="standby"?"sc_standby":"sc_avail");
   $("hoursSum").textContent=hoursSummary(m.hours);
   var readiness=$('dispatchReady');if(!readiness){readiness=document.createElement('p');readiness.id='dispatchReady';readiness.style.cssText='font-size:13px;padding:12px;border:1px solid #d5a137;border-radius:10px;white-space:pre-line';$('modeDesc').after(readiness)}
-  readiness.textContent=stText('חשבון זה שייך לאתר החדש בלבד. רישום באתר הישן לא מפעיל התראות כאן.','This account belongs to this new site. Registration on the old site does not enable alerts here.')+'\n'+(m.location_ready?stText('✓ מיקום עדכני קיים','✓ Recent location available'):stText('⚠ אין מיקום עדכני. יש לאשר מיקום במכשיר ולבחור זמין כדי לקבל קריאות קרובות.','⚠ No recent location. Allow location and select Available to receive nearby requests.'))+'\n'+(V.pushState==='on'&&m.push_devices>0?stText('✓ התראות רקע רשומות במכשיר זה (המסירה תלויה במכשיר)','✓ Background notifications registered on this device (delivery depends on the device)'):stText('⚠ ללא אישור התראות במכשיר זה, הקריאה מופיעה רק כשהאתר פתוח ופעיל.','⚠ Without notification permission on this device, requests appear only while the page is open and active.'));
+  readiness.textContent=stText('חשבון זה שייך לאתר החדש בלבד. רישום באתר הישן לא מפעיל התראות כאן.','This account belongs to this new site. Registration on the old site does not enable alerts here.')+'\n'+(m.coverage?stText('✓ אזור פעילות קבוע פעיל: '+m.coverage.label+' · '+m.coverage.radius_km+' ק״מ (ללא צורך במיקום עדכני)','✓ Fixed coverage enabled: '+m.coverage.label+' · '+m.coverage.radius_km+' km (no recent location needed)'):m.location_ready?stText('✓ מיקום עדכני קיים','✓ Recent location available'):stText('⚠ אין מיקום עדכני. יש לאשר מיקום או להגדיר אזור פעילות קבוע כדי לקבל קריאות.','⚠ No recent location. Allow location or set a fixed coverage area to receive requests.'))+'\n'+(V.pushState==='on'&&m.push_devices>0?stText('✓ התראות רקע רשומות במכשיר זה (המסירה תלויה במכשיר)','✓ Background notifications registered on this device (delivery depends on the device)'):stText('⚠ ללא אישור התראות במכשיר זה, הקריאה מופיעה רק כשהאתר פתוח ופעיל.','⚠ Without notification permission on this device, requests appear only while the page is open and active.'));
 
+  renderCoverage(m);
   var on=V.mode!=="off",line=$("alertLine"),txt="",cls="",tap=false;
   var pushOn=V.pushState==="on"&&(m.push_devices==null||m.push_devices>0);
   if(on){
@@ -409,6 +410,35 @@ function renderModeUI(m){
   var ko=$("keepOpen");ko.classList.toggle("on",V.mode==="available");ko.hidden=V.mode!=="available";ko.textContent=t(pushOn?"keep_open2":"keep_open");
 }
 function Notification_perm(){try{return ("Notification" in window)?Notification.permission:"unsupported"}catch(e){return "unsupported"}}
+/* Coverage is chosen explicitly. City text alone never enables delivery. */
+function renderCoverage(m){
+  var box=$('coverageBox');
+  if(!box){
+    box=document.createElement('details');box.id='coverageBox';box.style.cssText='padding:14px;border:1px solid #ddd;border-radius:12px;margin:12px 0';
+    var summary=document.createElement('summary');summary.id='coverageSummary';box.appendChild(summary);
+    var note=document.createElement('p');note.style.cssText='font-size:13px;line-height:1.6';note.textContent=stText('אפשר לקבל בקשות באזור קבוע גם בלי לפתוח את האתר במשך שבוע. נדרש אישור התראות במכשיר ומצב זמין או כונן; שעות הפעילות והפסקת ההתראות נשמרות. האזור פרטי ואינו מיקום חי במפה. המסירה תלויה במכשיר ובשירות ההתראות.','Receive requests in a fixed area even after a week without opening the site. Requires device notification permission and Available or Standby mode. Hours and paused alerts still apply. Your area is private, not a live map location. Delivery depends on the device and push service.');box.appendChild(note);
+    function input(id,label,type){var lb=document.createElement('label');lb.style.cssText='display:block;margin:10px 0';lb.textContent=label;var el=document.createElement('input');el.id=id;el.type=type||'text';if(type==='number')el.step='any';el.style.cssText='display:block;width:100%;box-sizing:border-box';lb.appendChild(el);box.appendChild(lb);return el}
+    var city=input('coverageCity',stText('חיפוש עיר או כתובת','Search city or address'));
+    var search=document.createElement('button');search.type='button';search.className='btn soft sm';search.textContent=stText('חפש אזור','Search area');box.appendChild(search);
+    var results=document.createElement('div');results.id='coverageResults';box.appendChild(results);
+    input('coverageLabel',stText('שם אזור הפעילות','Coverage area name'));
+    input('coverageLat',stText('קו רוחב של מרכז האזור','Center latitude'),'number');input('coverageLng',stText('קו אורך של מרכז האזור','Center longitude'),'number');
+    var gps=document.createElement('button');gps.type='button';gps.className='btn soft sm';gps.textContent=stText('השתמש במיקום שלי כמרכז','Use my location as center');box.appendChild(gps);
+    var radius=input('coverageRadius',stText('רדיוס בק״מ (1 עד 100)','Radius in km (1 to 100)'),'number');radius.min='1';radius.max='100';radius.value='10';
+    var err=document.createElement('p');err.id='coverageErr';err.setAttribute('role','status');err.style.cssText='font-size:13px;overflow-wrap:anywhere';box.appendChild(err);
+    var save=document.createElement('button');save.id='coverageSave';save.type='button';save.className='btn primary sm';save.textContent=stText('שמור והפעל אזור קבוע','Save and enable fixed area');box.appendChild(save);
+    var remove=document.createElement('button');remove.id='coverageRemove';remove.type='button';remove.className='btn soft sm';remove.style.marginTop='8px';remove.textContent=stText('בטל אזור קבוע','Disable fixed area');box.appendChild(remove);
+    $('hoursBtn').before(box);
+    search.onclick=function(){var q=city.value.trim();if(q.length<2)return;search.disabled=true;results.textContent=stText('מחפש...','Searching...');fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&accept-language='+LANG+',he,en&limit=5&q='+encodeURIComponent(q)).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){results.textContent='';if(!list.length)results.textContent=stText('לא נמצאו תוצאות. אפשר להזין קואורדינטות.','No results. You can enter coordinates.');list.forEach(function(p){var b=document.createElement('button');b.type='button';b.className='btn soft sm';b.style.cssText='margin-top:8px;white-space:normal;height:auto';b.textContent=p.display_name;b.onclick=function(){$('coverageLabel').value=p.display_name.slice(0,200);$('coverageLat').value=p.lat;$('coverageLng').value=p.lon;results.textContent=stText('המרכז נבחר. בדוק את הרדיוס ולחץ שמור.','Center selected. Check the radius and save.');};results.appendChild(b)})}).catch(function(){results.textContent=stText('החיפוש לא זמין כרגע. אפשר להשתמש במיקום שלך או להזין קואורדינטות.','Search unavailable. Use your location or enter coordinates.')} ).then(function(){search.disabled=false})};
+    gps.onclick=function(){err.textContent=stText('מאתר מיקום...','Finding location...');getGps(function(p){$('coverageLat').value=p[0];$('coverageLng').value=p[1];if(!$('coverageLabel').value)$('coverageLabel').value=stText('אזור הפעילות שלי','My coverage area');err.textContent=stText('המרכז נבחר. בדוק את הרדיוס ולחץ שמור.','Center selected. Check the radius and save.')},function(){err.textContent=stText('לא התקבל מיקום. חפש כתובת או הזן קואורדינטות.','Location unavailable. Search an address or enter coordinates.')})};
+    function submit(b){save.disabled=true;remove.disabled=true;err.textContent='';api('POST','/api/shaliach/coverage',b,V.me.token).then(function(j){save.disabled=false;remove.disabled=false;if(!j.ok){err.textContent=stText('לא נשמר. בדוק שם, קואורדינטות ורדיוס.','Not saved. Check name, coordinates and radius.');return}mergeMe(j);err.textContent=j.coverage?stText('נשמר והופעל. יש לאשר התראות במכשיר.','Saved and enabled. Allow device notifications.'):stText('אזור הפעילות הקבוע בוטל.','Fixed coverage disabled.');renderModeUI()})}
+    save.onclick=function(){if(!$('coverageLat').value.trim()||!$('coverageLng').value.trim()){err.textContent=stText('יש לבחור מרכז לאזור הפעילות.','Choose a coverage center.');return}submit({enabled:true,label:$('coverageLabel').value,lat:Number($('coverageLat').value),lng:Number($('coverageLng').value),radius_km:Number(radius.value)})};remove.onclick=function(){submit({enabled:false})};
+  }
+  $('coverageSummary').textContent=stText('📍 אזור פעילות קבוע','📍 Fixed coverage area')+(m.coverage?' · '+m.coverage.label+' · '+m.coverage.radius_km+stText(' ק״מ',' km'):stText(' · לא מוגדר',' · Not set'));
+  $('coverageRemove').hidden=!m.coverage;
+  if(!box.open){var c=m.coverage||{};$('coverageLabel').value=c.label||'';$('coverageLat').value=c.lat==null?'':c.lat;$('coverageLng').value=c.lng==null?'':c.lng;$('coverageRadius').value=c.radius_km||10}
+}
+
 /* web push */
 function pushSupported(){return "serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window}
 function b64uToU8(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
