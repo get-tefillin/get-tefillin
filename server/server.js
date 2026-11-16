@@ -318,7 +318,11 @@ async function api(req, res, pathname, query) {
   /* Announcement inbox and opt-in devices. No phone numbers exposed. */
   if (pathname === "/api/announcements" && req.method === "GET") {
     const sh = findShByToken(token(req));
-    const items = (db.settings.announcements || []).filter(a => a.audience === "all" || sh).slice(-10)
+    const rq=db.requests[String(req.headers["x-request-id"]||"")];
+    const validRequester=rq && rq.token===String(req.headers["x-request-token"]||"");
+    const dev=String(req.headers["x-announcement-device"]||"");
+    const subscribedDevice=/^[a-f0-9]{24,64}$/.test(dev) && (db.announcement_devices||{})[crypto.createHash("sha256").update(dev).digest("hex")];
+    const items = (db.settings.announcements || []).filter(a => sh || (a.audience === "all" && (validRequester || subscribedDevice))).slice(-10)
       .map(a => ({id:a.id,text:a.text,link:a.link,at:a.at}));
     return json(res,200,{ok:true,items:items});
   }
