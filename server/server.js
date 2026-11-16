@@ -14,6 +14,8 @@ const crypto = require("crypto");
 const { Store } = require("./store");
 const remote = require("./remote");
 const push = require("./push");
+const announcements = require("./announcements");
+const announcementDrafts = new Map();
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const ROOT = path.join(__dirname, "..");
@@ -311,6 +313,25 @@ async function api(req, res, pathname, query) {
       announcement: st.announcement || null,
       stats: st.stats_visible ? { month: mk, month_count: (db.counters.by_month || {})[mk] || 0, total_done: db.counters.total_done || 0 } : null
     });
+  }
+
+  /* Announcement inbox and opt-in devices. No phone numbers exposed. */
+  if (pathname === "/api/announcements" && req.method === "GET") {
+    const sh = findShByToken(token(req));
+    const items = (db.settings.announcements || []).filter(a => a.audience === "all" || sh).slice(-10)
+      .map(a => ({id:a.id,text:a.text,link:a.link,at:a.at}));
+    return json(res,200,{ok:true,items:items});
+  }
+  if (pathname === "/api/announcements/subscribe" && req.method === "POST") {
+    const b = await readBody(req), device=String(b.device||"");
+    if (!/^[a-f0-9]{24,64}$/.test(device)) return fail(res,"state",400);
+    const key = crypto.createHash("sha256").update(device).digest("hex");
+    db.announcement_devices = db.announcement_devices || {};
+    if (b.remove === true) { delete db.announcement_devices[key]; store.save(); return json(res,200,{ok:true}); }
+    if (!announcements.validSub(b.sub)) return fail(res,"subscription",400);
+    if (ipLimited(ip)) return fail(res,"rate",429);
+    if (!db.announcement_devices[key] && Object.keys(db.announcement_devices).length>=10000) return fail(res,"capacity",429);
+    db.announcement_devices[key]={sub:b.sub,at:now()};store.save();return json(res,200,{ok:true});
   }
 
   /* GET /api/push/key */
@@ -685,7 +706,7 @@ async function api(req, res, pathname, query) {
     if (sub === "push" && req.method === "POST") {
       const b = await readBody(req);
       const s = b.sub || {};
-      if (!s.endpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) return fail(res, "state");
+      if (!announcements.validSub(s)) return fail(res, "state");
       sh.push = (sh.push || []).filter(function (x) { return x.endpoint !== s.endpoint; });
       sh.push.push({ endpoint: String(s.endpoint), keys: { p256dh: String(s.keys.p256dh), auth: String(s.keys.auth) } });
       store.save();
@@ -878,6 +899,32 @@ async function api(req, res, pathname, query) {
       return json(res, 200, { ok: true });
     }
 
+    if (sub === "announcements" && req.method === "GET") {
+      return json(res,200,{ok:true,shluchim_devices:announcements.targets(db,"shluchim").length,all_devices:announcements.targets(db,"all").length,
+        history:(db.settings.announcements||[]).slice(-20).map(a=>({id:a.id,audience:a.audience,text:a.text,link:a.link,at:a.at,state:a.state,total:a.total,accepted:a.accepted,failed:a.failed}))});
+    }
+    if (sub === "announcements" && seg[3] === "preview" && req.method === "POST") {
+      const b=await readBody(req), item=announcements.normalize(b);
+      if(!item)return fail(res,"content",400);
+      for(const [k,v] of announcementDrafts)if(now()-v.at>300000)announcementDrafts.delete(k);
+      if(announcementDrafts.size>=50)return fail(res,"rate",429);
+      const id=rid(16);announcementDrafts.set(id,{item:item,at:now()});
+      return json(res,200,{ok:true,id:id,item:item,devices:announcements.targets(db,item.audience).length});
+    }
+    if (sub === "announcements" && seg[3] === "send" && req.method === "POST") {
+      const b=await readBody(req), history=db.settings.announcements||[];
+      const existing=history.find(a=>a.id===b.id);
+      if(existing)return json(res,200,{ok:true,id:existing.id,state:existing.state,duplicate:true});
+      const draft=announcementDrafts.get(b.id);
+      if(!draft || now()-draft.at>300000 || b.confirm!=="SEND "+b.id)return fail(res,"confirmation",400);
+      if(history.some(a=>a.state==="queued"||a.state==="sending"))return fail(res,"busy",409);
+      const subs=announcements.targets(db,draft.item.audience);
+      const record=Object.assign({id:b.id,at:now(),state:"queued",total:subs.length,accepted:0,failed:0},draft.item);
+      db.settings.announcements=history.concat([record]).slice(-20);announcementDrafts.delete(b.id);store.save();
+      setImmediate(()=>announcements.deliver(record,subs,(s,p)=>push.sendOne(CFG.vapid,s,p,CFG.contact),()=>store.save()).catch(()=>{record.state="interrupted";store.save()}));
+      return json(res,200,{ok:true,id:record.id,state:record.state,devices:subs.length});
+    }
+
     /* Test-data tools: distinct record removal and aggregate statistics reset. */
     if (sub === "orderer" && seg[3] === "delete" && req.method === "POST") {
       const b = await readBody(req);
@@ -948,6 +995,9 @@ async function api(req, res, pathname, query) {
     if (sub === "export" && req.method === "GET") {
       // full data export (db.json) so the owner can back up or migrate everything
       const clone = JSON.parse(JSON.stringify(db));
+      if(clone.settings)delete clone.settings.push_signing;
+      Object.values(clone.shluchim).forEach(s=>{delete s.push;});
+      delete clone.announcement_devices;
       Object.values(clone.shluchim).forEach(function (s) { delete s.token; });
       Object.values(clone.requests).forEach(function (r) { delete r.token; });
       res.writeHead(200, {
@@ -1097,6 +1147,9 @@ async function maybeSendMonthlyReport(force, markSent) {
 setInterval(function () { maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); }); }, 30 * 60000);
 
 store.restore().catch(function () {}).then(function () {
+  if (db.settings.push_signing) CFG.vapid=db.settings.push_signing;
+  else { db.settings.push_signing=CFG.vapid; store.save(); }
+  (db.settings.announcements||[]).forEach(a=>{if(a.state==="queued"||a.state==="sending")a.state="interrupted"});
   maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); });
   server.listen(PORT, function () {
     console.log("Get Tefillin replica listening on http://localhost:" + PORT);

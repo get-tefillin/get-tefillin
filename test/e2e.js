@@ -334,6 +334,33 @@ async function main() {
     r=await j("POST","/api/admin/stats/reset-month",{month:month,confirm:"RESET "+month},null,{cookie});
     check("repeating reset cannot double subtract",r.j.ok&&r.j.removed===0&&r.j.total_done===resetStats.j.total_layings);
 
+    /* Announcement publishing tested only in this isolated server (no real subscribers). */
+    r=await j("POST","/api/admin/announcements/preview",{audience:"all",text:"בדיקת הודעה",link:"javascript:alert(1)"},null,{cookie});
+    check("announcement rejects unsafe link",r.status===400);
+    r=await j("POST","/api/admin/announcements/preview",{audience:"all",text:"בדיקת הודעה",link:"https://example.com"},null,{cookie});
+    check("announcement preview does not publish",r.j.ok&&r.j.devices===0);
+    const draftId=r.j.id;
+    const unpub=await j("GET","/api/announcements");
+    check("preview absent from public inbox",unpub.j.items.length===0);
+    r=await j("POST","/api/admin/announcements/send",{id:draftId},null,{cookie});
+    check("announcement send requires confirmation",r.status===400);
+    r=await j("POST","/api/admin/announcements/send",{id:draftId,confirm:"SEND "+draftId},null,{cookie});
+    check("confirmed announcement queues once",r.j.ok);
+    r=await j("POST","/api/admin/announcements/send",{id:draftId,confirm:"SEND "+draftId},null,{cookie});
+    check("announcement retry is idempotent",r.j.ok&&r.j.duplicate);
+    r=await j("GET","/api/announcements");
+    check("published all-audience message in inbox",r.j.items.length===1&&r.j.items[0].text==="בדיקת הודעה");
+    r=await j("POST","/api/admin/announcements/preview",{audience:"shluchim",text:"שלוחים בלבד"},null,{cookie});
+    const shDraft=r.j.id;
+    await j("POST","/api/admin/announcements/send",{id:shDraft,confirm:"SEND "+shDraft},null,{cookie});
+    r=await j("GET","/api/announcements");
+    check("shluchim-only message hidden from orderers",r.j.items.length===1);
+    const anVolunteer=await j("POST","/api/shaliach/register",{name:"בודק הודעות",phone:"0504443322",transport:"foot",has_tefillin:true});
+    r=await j("GET","/api/announcements",null,anVolunteer.j.token);
+    check("shaliach sees shluchim-only message",r.j.items.length===2);
+    r=await j("GET","/api/admin/export",null,null,{cookie});
+    check("export hides notification signing private key",!r.j.settings.push_signing&&!r.j.announcement_devices);
+
     /* push key endpoint */
     r = await j("GET", "/api/push/key");
     check("push key present", r.j && typeof r.j.key === "string" && r.j.key.length > 20, r.j);

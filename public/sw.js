@@ -1,6 +1,6 @@
 // Get Tefillin — service worker: caches the app shell; the API and admin always go to the network.
-const CACHE = "tn-shell-v12";
-const SHELL = ["/", "/styles.css?v=11", "/app.js?v=11", "/config.js?v=11", "/i18n.js?v=11", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js", "/map/map.css", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "tn-shell-v13";
+const SHELL = ["/announcements.js?v=13","/", "/styles.css?v=11", "/app.js?v=11", "/config.js?v=11", "/i18n.js?v=11", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js", "/map/map.css", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "tn-push-log").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
@@ -36,6 +36,7 @@ self.addEventListener("notificationclick", e => {
   e.notification.close();
   const data = e.notification.data || {};
   const target = new URL(data.url || "/#vol", self.location.origin).href;
+  if (data.type === "announcement") { e.waitUntil(self.clients.openWindow(target)); return; }
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
     for (const c of list) {
       if (new URL(c.url).origin === self.location.origin && "focus" in c) {

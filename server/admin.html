@@ -50,6 +50,18 @@ input[type=url],input[type=text]{width:100%;padding:8px 10px;border:1px solid #c
 </header>
 
 <div class="cards" id="cards"></div>
+<section>
+ <h2>שליחת הודעה מיוחדת</h2>
+ <p class="muted">הודעה בתוך האתר והאפליקציה, וגם Push למכשירים שאישרו התראות. רישום טלפון לבדו אינו מאפשר התראה לטלפון. המספרים הם מכשירים, לא אנשים או אישורי קריאה. לא נשלחים SMS או מיילים.</p>
+ <label>קהל <select id="anAudience"><option value="shluchim">שלוחים בלבד</option><option value="all">שלוחים ומניחים</option></select></label>
+ <label style="display:block;margin-top:10px">תוכן ההודעה<textarea id="anText" rows="4" maxlength="800" style="width:100%;font:inherit" placeholder="זמני שבת, הודעה או עדכון חשוב"></textarea></label>
+ <label>קישור (לא חובה, https בלבד)<input id="anLink" type="url" dir="ltr" style="width:100%" maxlength="500" placeholder="https://"></label>
+ <p class="muted" id="anCounts"></p>
+ <button id="anPreview" class="act gold">תצוגה מקדימה לפני שליחה</button>
+ <div id="anReview" hidden style="border:2px solid #d9aa38;padding:16px;margin-top:10px"><strong>בדקו את ההודעה לפני שליחה</strong><p id="anPreviewText" style="white-space:pre-wrap"></p><p id="anPreviewLink" dir="ltr"></p><p id="anPreviewAudience"></p><button id="anSend" class="act del">אישור ושליחת ההודעה</button><button id="anCancel" class="act">ביטול</button></div>
+ <div id="anHistory" style="white-space:pre-wrap;margin-top:12px"></div>
+</section>
+
 
 <section>
   <h2>דו״ח חודשי</h2>
@@ -126,6 +138,17 @@ function api(path,body){
   return fetch(path,{method:body?"POST":"GET",headers:body?{"content-type":"application/json"}:undefined,body:body?JSON.stringify(body):undefined,credentials:"same-origin",cache:"no-store"})
     .then(function(r){if(r.status===401){location.href="/";throw new Error("auth")}return r.json()});
 }
+var announcementDraft=null;
+function loadAnnouncements(){return api("/api/admin/announcements").then(function(j){if(!j.ok)return;$("anCounts").textContent="מכשירים רשומים להתראות: שלוחים "+j.shluchim_devices+" · שלוחים ומניחים "+j.all_devices;
+ $("anHistory").textContent=(j.history||[]).slice().reverse().slice(0,5).map(function(a){return new Date(a.at).toLocaleString('he-IL')+" · "+(a.audience==='all'?'שלוחים ומניחים':'שלוחים')+" · "+({queued:'בתור',sending:'בשליחה',finished:'השליחה הסתיימה',interrupted:'השליחה נקטעה; לא נשלחה שוב אוטומטית'}[a.state]||a.state)+"\n"+a.text+"\nקיבלו אישור מספק ההתראות: "+a.accepted+" / "+a.total+" · נכשלו: "+a.failed}).join("\n\n");
+ if((j.history||[]).some(function(a){return a.state==='sending'||a.state==='queued'}))setTimeout(loadAnnouncements,5000);
+ }).catch(function(){})}
+function cancelAnnouncement(){$("anReview").hidden=true;announcementDraft=null}
+["anAudience","anText","anLink"].forEach(function(id){$(id).addEventListener('input',cancelAnnouncement)});
+$("anCancel").onclick=cancelAnnouncement;
+$("anPreview").onclick=function(){api("/api/admin/announcements/preview",{audience:$("anAudience").value,text:$("anText").value,link:$("anLink").value}).then(function(j){if(!j.ok){toast("יש להזין טקסט או קישור https תקין");return}announcementDraft=j.id;$("anPreviewText").textContent=j.item.text;$("anPreviewLink").textContent=j.item.link;$("anPreviewAudience").textContent=(j.item.audience==='all'?'שלוחים ומניחים':'שלוחים בלבד')+" · "+j.devices+" מכשירי Push. ההודעה תופיע גם בתוך האתר לקהל שנבחר.";$("anReview").hidden=false;$("anSend").disabled=false})};
+$("anSend").onclick=function(){if(!announcementDraft||!confirm("לשלוח עכשיו לקהל המוצג? לא ניתן לבטל Push שכבר נשלח."))return;var id=announcementDraft;$("anSend").disabled=true;api("/api/admin/announcements/send",{id:id,confirm:"SEND "+id}).then(function(j){if(j.ok){toast("ההודעה פורסמה והשליחה התחילה");cancelAnnouncement();loadAnnouncements()}else{toast(j.code==='busy'?"שליחה קודמת עדיין פעילה":"האישור פג. הכינו תצוגה מקדימה חדשה");$("anSend").disabled=false}}).catch(function(){toast("תוצאת השליחה אינה ידועה. בדקו היסטוריה לפני ניסיון נוסף");loadAnnouncements()})};
+loadAnnouncements();
 var TR={foot:"ברגל",bike:"אופניים",car:"רכב"};
 var ST={open:"ממתין",waiting:"ממתין (פתוח)",accepted:"נתפס",arrived:"הגיע",done:"בוצע",cancelled:"בוטל"};
 var MODE={available:"זמין",standby:"כונן",off:"כבוי"};

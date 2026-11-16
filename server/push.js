@@ -121,4 +121,4 @@ async function sendToShaliach(vapidCfg, shaliach, payloadObj, contact, onGone) {
   return sent;
 }
 
-module.exports = { generateVapid, sendToShaliach, b64u, fromB64u };
+module.exports = { sendOne, generateVapid, sendToShaliach, b64u, fromB64u };
