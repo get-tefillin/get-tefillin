@@ -1,5 +1,5 @@
 "use strict";
-/* Get Tefillin replica — JSON file store. No external dependencies.
+/* Tefillin Now replica — JSON file store. No external dependencies.
    All state lives in <dataDir>/db.json; photos live in <dataDir>/photos/.
    Writes are atomic (tmp file + rename) and debounced. */
 const fs = require("fs");
