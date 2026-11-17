@@ -26,7 +26,7 @@ async function deliver(record, subs, send, checkpoint) {
   await Promise.all(Array.from({length:Math.min(3,subs.length)}, async () => {
     while(next < subs.length) {
       const s=subs[next++]; let r;
-      try { r=await send(s, {type:'announcement',title:'Get Tefillin',body:record.text || 'עדכון חדש',url:record.link || '/',tag:'announcement-'+record.id}); } catch(e) { r={ok:false,status:0}; }
+      try { r=await send(s, {type:'announcement',title:'Tefillin Now',body:record.text || 'עדכון חדש',url:record.link || '/',tag:'announcement-'+record.id}); } catch(e) { r={ok:false,status:0}; }
       if(r.ok)record.accepted++; else record.failed++;
       if((record.accepted+record.failed)%10===0)checkpoint();
     }
