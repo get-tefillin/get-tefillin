@@ -1,5 +1,5 @@
 "use strict";
-/* Get Tefillin replica — Web Push (RFC 8291 payload encryption "aes128gcm" + RFC 8292 VAPID),
+/* Tefillin Now replica — Web Push (RFC 8291 payload encryption "aes128gcm" + RFC 8292 VAPID),
    implemented on the Node.js standard library only (no npm dependencies).
    VAPID keys are generated once and stored in config.json. */
 

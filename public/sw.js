@@ -1,6 +1,6 @@
-// Get Tefillin — service worker: caches the app shell; the API and admin always go to the network.
-const CACHE = "tn-shell-v27";
-const SHELL = ["/active-map.js?v=3","/announcements.js?v=13","/", "/styles.css?v=18", "/app.js?v=26", "/config.js?v=11", "/i18n.js?v=11", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js?v=17", "/map/map.css?v=16", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+// תפילין נאו — service worker: caches the app shell; the API and admin always go to the network.
+const CACHE = "tn-shell-v28";
+const SHELL = ["/active-map.js?v=3","/announcements.js?v=14","/", "/styles.css?v=18", "/app.js?v=27", "/config.js?v=11", "/i18n.js?v=12", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js?v=17", "/map/map.css?v=16", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "tn-push-log").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
@@ -21,8 +21,8 @@ self.addEventListener("fetch", e => {
 // v6: background alerts for shluchim (Web Push). The payload is encrypted end to end by the server.
 self.addEventListener("push", e => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: "Get Tefillin", body: e.data ? e.data.text() : "" }; }
-  const title = d.title || "Get Tefillin";
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: "תפילין נאו", body: e.data ? e.data.text() : "" }; }
+  const title = d.title || "תפילין נאו";
   const opts = { body: d.body || "", icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", tag: d.tag || "tn", renotify: true,
     requireInteraction: d.type === "req", vibrate: [300, 150, 300, 150, 300], data: { url: d.url || "/#vol", id: d.id || null, type: d.type || "" }, lang: "he", dir: "auto" };
   e.waitUntil(self.registration.showNotification(title, opts).then(() => pushLog(d, "shown"), x => pushLog(d, "error: " + (x && x.message))));

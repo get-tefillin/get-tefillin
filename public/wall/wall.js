@@ -1,4 +1,4 @@
-// Get Tefillin — Tefillin Wall (public): monthly counter, % change, bar graph, approved photos, archive.
+// Tefillin Now — Tefillin Wall (public): monthly counter, % change, bar graph, approved photos, archive.
 (function(){
 "use strict";
 var I=window.TN_I18N,$=function(id){return document.getElementById(id)};

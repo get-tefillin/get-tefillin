@@ -1,5 +1,5 @@
 @font-face{font-family:"Heebo";src:url(fonts/Heebo.ttf) format("truetype");font-weight:100 900;font-display:swap}
-/* Get Tefillin v10 — map-first ride-hailing look: white surfaces, black type, one gold accent */
+/* Tefillin Now v10 — map-first ride-hailing look: white surfaces, black type, one gold accent */
 :root{--ink:#0d0d0f;--ink2:#2b2d33;--muted:#6c707a;--line:#ececef;--soft:#f3f3f5;--soft2:#e9e9ec;--acc:#ffc21a;--acc2:#ffd257;--acc-ink:#0d0d0f;--ok:#12a150;--ok-bg:#e7f6ee;--warn:#b26b00;--warn-bg:#fff4dc;--bad:#d92d20;--blue:#2f6ff6;--r:26px;--sh:0 -6px 30px rgba(0,0,0,.12);--sheet-h:300px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#fff;font-family:"Heebo",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);overflow:hidden}

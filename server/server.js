@@ -1,6 +1,6 @@
 "use strict";
 /* =====================================================================
-   Get Tefillin — replica server (Node.js standard library only, v18+)
+   Tefillin Now — replica server (Node.js standard library only, v18+)
    Rebuilt against the public frontend contracts of get-tefillin.
    Run:  node server/server.js     (PORT env, default 8080)
    Data: server/../data/ (DATA_DIR env to override)
@@ -58,7 +58,7 @@ function loadConfig() {
   if (!cfg.contact) { cfg.contact = "mailto:admin@example.com"; changed = true; }
   if (changed) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
-    console.log("=== Get Tefillin replica: new config.json created ===");
+    console.log("=== Tefillin Now replica: new config.json created ===");
     console.log("=== Admin credentials stored privately ===");
   }
   return cfg;
@@ -213,7 +213,7 @@ function startRing(req) {
     const sh = db.shluchim[sid];
     if (!sh || !(sh.push || []).length) return;
     if (!alertState(sh).alerts) return;
-    push.sendToShaliach(CFG.vapid, sh, { type: "req", id: req.id, title: "Get Tefillin", body: "בקשת תפילין חדשה באזור הפעילות שלך", url: "/?r=" + req.id + "#vol" }, CFG.contact, function (gone) {
+    push.sendToShaliach(CFG.vapid, sh, { type: "req", id: req.id, title: "תפילין נאו", body: "בקשת תפילין חדשה באזור הפעילות שלך", url: "/?r=" + req.id + "#vol" }, CFG.contact, function (gone) {
       sh.push = (sh.push || []).filter(function (s) { return s.endpoint !== gone.endpoint; }); store.save();
     }).then(function(accepted){req.push_accepted=(req.push_accepted||0)+accepted;req.push_failed=(req.push_failed||0)+Math.max(0,(sh.push||[]).length-accepted);store.save()}).catch(function(){req.push_failed=(req.push_failed||0)+1;store.save()});
   });
@@ -749,7 +749,7 @@ async function api(req, res, pathname, query) {
       (r.candidates || []).forEach(function (sid) {
         if (sid === sh.id) return;
         const other = db.shluchim[sid];
-        if (other && (other.push || []).length) push.sendToShaliach(CFG.vapid, other, { type: "taken", id: r.id, title: "Get Tefillin", body: "הבקשה נתפסה על ידי שליח אחר", url: "/#vol" }, CFG.contact, null);
+        if (other && (other.push || []).length) push.sendToShaliach(CFG.vapid, other, { type: "taken", id: r.id, title: "תפילין נאו", body: "הבקשה נתפסה על ידי שליח אחר", url: "/#vol" }, CFG.contact, null);
       });
       return json(res, 200, { ok: true });
     }
@@ -813,7 +813,7 @@ async function api(req, res, pathname, query) {
     }
 
     if (sub === "pushtest" && req.method === "POST") {
-      const sent = await push.sendToShaliach(CFG.vapid, sh, { type: "test", title: "Get Tefillin", body: "בדיקת התראות - הכל עובד", url: "/#vol" }, CFG.contact, function (gone) {
+      const sent = await push.sendToShaliach(CFG.vapid, sh, { type: "test", title: "תפילין נאו", body: "בדיקת התראות - הכל עובד", url: "/#vol" }, CFG.contact, function (gone) {
         sh.push = (sh.push || []).filter(function (s) { return s.endpoint !== gone.endpoint; }); store.save();
       });
       return json(res, 200, { ok: true, sent: sent > 0 });
@@ -1234,7 +1234,7 @@ function reportTextFor(mk) {
   const pho = (db.counters.photos_by_month || {})[mk] || 0;
   const il = { y: +mk.slice(0, 4), m: +mk.slice(5, 7) };
   return [
-    "דוח חודשי — Get Tefillin",
+    "דוח חודשי — תפילין נאו",
     "חודש: " + il.m + "/" + il.y,
     "",
     "הנחות תפילין החודש: " + lay,
@@ -1254,7 +1254,7 @@ async function sendReportEmail(to, subject, text) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": BREVO_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify({ sender: { email: REPORT_SENDER, name: "Get Tefillin" }, to: [{ email: to }], subject: subject, textContent: text })
+    body: JSON.stringify({ sender: { email: REPORT_SENDER, name: "תפילין נאו" }, to: [{ email: to }], subject: subject, textContent: text })
   });
   if (!res.ok) throw new Error("brevo http " + res.status + ": " + (await res.text()).slice(0, 200));
   return res.json().catch(function () { return {}; });
@@ -1273,7 +1273,7 @@ async function maybeSendMonthlyReport(force, markSent) {
     const il = ilParts();
     if (il.d !== 1 || il.h < 9) return { ok: false, skipped: "not_time", month: prev };
   }
-  await sendReportEmail(to, "Get Tefillin — דוח חודשי " + prev, reportTextFor(prev));
+  await sendReportEmail(to, "תפילין נאו — דוח חודשי " + prev, reportTextFor(prev));
   if (markSent !== false) {
     db.settings.last_sent_month = prev;
     store.save();
@@ -1293,7 +1293,7 @@ safeRestore().then(function () {
   (db.settings.announcements||[]).forEach(a=>{if(a.state==="queued"||a.state==="sending")a.state="interrupted"});
   maybeSendMonthlyReport(false).catch(function (e) { console.error("monthly report failed:", e.message); });
   server.listen(PORT, function () {
-    console.log("Get Tefillin replica listening on http://localhost:" + PORT);
+    console.log("Tefillin Now replica listening on http://localhost:" + PORT);
     console.log("Admin page: /admin (code in config.json)");
   });
 }).catch(()=>{console.error("Startup paused: remote data unavailable; no empty overwrite");process.exit(1)});
