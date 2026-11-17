@@ -1,6 +1,6 @@
 // תפילין נאו — service worker: caches the app shell; the API and admin always go to the network.
-const CACHE = "tn-shell-v29";
-const SHELL = ["/active-map.js?v=3","/announcements.js?v=20261117","/", "/styles.css?v=18", "/app.js?v=20261117", "/config.js?v=11", "/i18n.js?v=20261117", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js?v=17", "/map/map.css?v=16", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "tn-shell-v30";
+const SHELL = ["/active-map.js?v=3","/announcements.js?v=20261117b","/", "/styles.css?v=18", "/app.js?v=20261117b", "/config.js?v=11", "/i18n.js?v=20261117b", "/vendor/leaflet.css", "/vendor/leaflet.js", "/map/", "/map/map.js?v=17", "/map/map.css?v=16", "/icon.svg", "/fonts/Heebo.ttf", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== "tn-push-log").map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
