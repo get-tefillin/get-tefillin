@@ -17,6 +17,7 @@ const remote = require("./remote");
 const push = require("./push");
 const announcements = require("./announcements");
 const stands = require("./stands");
+const cityGeo = require("./city-geo");
 const announcementDrafts = new Map();
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
@@ -165,6 +166,14 @@ function nearbyCard(sh, pos) {
 }
 function shaliachFresh(sh) {
   return Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && (now() - (sh.loc_at || 0)) < LOC_FRESH_MS;
+}
+/* Public availability point: fresh live GPS while the shaliach is actively
+   sharing; otherwise his geocoded service city (set from the city he typed at
+   registration). Both are rounded to ~1km anonymous dots, no identity. */
+function shaliachMapPoint(sh) {
+  if (Number.isFinite(sh.lat) && Number.isFinite(sh.lng) && now() - (sh.loc_at || 0) < 120000) return { lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2), src: "live" };
+  if (Number.isFinite(sh.city_lat) && Number.isFinite(sh.city_lng)) return { lat: +sh.city_lat.toFixed(2), lng: +sh.city_lng.toFixed(2), src: "city" };
+  return null;
 }
 /* A coverage area is an explicit private opt-in, never a live-map location. */
 function validGroupInvite(u) { try { const x=new URL(u);return x.protocol==="https:" && x.hostname==="chat.whatsapp.com" && !x.username && !x.password && !x.port && /^\/[a-zA-Z0-9]{10,80}\/?$/.test(x.pathname) && u.length<=500; } catch(e){return false} }
@@ -406,8 +415,8 @@ async function api(req, res, pathname, query) {
     if (b.length !== 4 || b.some(x => !Number.isFinite(x)) || b[0] < -180 || b[0] > 180 || b[2] < -180 || b[2] > 180 || b[1] < -90 || b[3] > 90 || b[1] > b[3]) return fail(res, "bounds", 400);
     if (!worldSnapshot || now() - worldSnapshot.at > 5000) {
       const busy = new Set(Object.values(db.requests).filter(r => r.status === "accepted" || r.status === "arrived").map(r => r.shaliach_id));
-      const points = Object.values(db.shluchim).filter(sh => sh.mode === "available" && shaliachFresh(sh) && now() - (sh.loc_at || 0) < 120000 && alertState(sh).alerts && !busy.has(sh.id) && Number.isFinite(sh.lat) && Number.isFinite(sh.lng))
-        .map(sh => ({lat: +sh.lat.toFixed(2), lng: +sh.lng.toFixed(2)}));
+      const points = Object.values(db.shluchim).filter(sh => sh.mode === "available" && alertState(sh).alerts && !busy.has(sh.id) && shaliachMapPoint(sh))
+        .map(sh => { const p = shaliachMapPoint(sh); return { lat: p.lat, lng: p.lng }; });
       const extent=points.length?points.reduce((b,p)=>[Math.min(b[0],p.lat),Math.min(b[1],p.lng),Math.max(b[2],p.lat),Math.max(b[3],p.lng)],[85,180,-85,-180]):null;
       worldSnapshot = {at: now(), points: points,extent};worldResponses.clear();
     }
@@ -594,6 +603,7 @@ async function api(req, res, pathname, query) {
         lat:null,lng:null,loc_at:0,created_at:now(),done_count:0,photo:null,push:[],privacy_version:((db.location_privacy||{})[privacyKey(b.device)]||{}).version||0,share_exact:((db.location_privacy||{})[privacyKey(b.device)]||{}).share_exact===true
       };
       db.shluchim[sh.id] = sh; store.save();
+      cityGeo.attachAsync(db, sh, store);
       return json(res, 200, { ok: true, token: sh.token, shaliach: meView(sh) });
     }
 
@@ -642,6 +652,7 @@ async function api(req, res, pathname, query) {
       if (Array.isArray(b.langs) && b.langs.length) sh.langs = b.langs.slice(0, 8);
       if (b.tz) sh.tz = String(b.tz);
       store.save();
+      cityGeo.attachAsync(db, sh, store);
       return json(res, 200, { ok: true });
     }
 
@@ -915,7 +926,8 @@ async function api(req, res, pathname, query) {
         return { id: r.id, first_name: r.first_name, phone: r.phone, address: r.address, status: r.status, created_at: r.created_at, shaliach_name: r.shaliach_id && db.shluchim[r.shaliach_id] ? db.shluchim[r.shaliach_id].name : "" };
       });
       const shluchim = Object.values(db.shluchim).sort(function (a, b) { return a.created_at - b.created_at; }).map(function (s) {
-        return { id: s.id, name: s.name, phone: s.phone, city: s.city, transport: s.transport, mode: s.mode, done_count: s.done_count || 0, month_count: shMonth(s) };
+        const mp = shaliachMapPoint(s);
+        return { id: s.id, name: s.name, phone: s.phone, city: s.city, transport: s.transport, mode: s.mode, done_count: s.done_count || 0, month_count: shMonth(s), map_src: mp ? mp.src : null, city_geo_src: s.city_geo_src || null };
       });
       const pending = Object.values(db.photos).filter(function (p) { return !p.approved; }).sort(function (a, b) { return b.at - a.at; })
         .map(function (p) { return { id: p.id, req_id: p.req_id, role: p.role, w: p.w, h: p.h, at: p.at } });
@@ -1288,6 +1300,7 @@ safeRestore().then(function () {
   const imported=require("./chabad-stands").apply(db,require("./chabad-stands-data.json"),now());
   if(imported.added||imported.updated||imported.retired)store.save();
   console.log("Chabad Israel stand snapshot: "+JSON.stringify(imported));
+  cityGeo.backfill(db, store); // geocode saved cities once; never blocks startup
   if (db.settings.push_signing) CFG.vapid=db.settings.push_signing;
   else { db.settings.push_signing=CFG.vapid; store.save(); }
   (db.settings.announcements||[]).forEach(a=>{if(a.state==="queued"||a.state==="sending")a.state="interrupted"});

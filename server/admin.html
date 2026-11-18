@@ -24,6 +24,7 @@ th{color:#667;font-weight:600}
 .badge{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;background:#eee}
 .badge.open{background:#fff3cd}.badge.waiting{background:#ffe8c2}.badge.accepted{background:#d6ecff}.badge.arrived{background:#d2f5e3}.badge.done{background:#e3f2e6}.badge.cancelled{background:#f6dcdc}
 .badge.available{background:#d2f5e3}.badge.standby{background:#fff3cd}.badge.off{background:#eee}
+.badge.warn{background:#f6dcdc;color:#8a1f1f;cursor:help}
 button.act{border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit}
 .del{background:#fdecea;color:var(--red)}
 .ok{background:#e6f7ee;color:var(--green)}
@@ -195,10 +196,15 @@ function render(d){
       confirmRecordRemoval("למחוק לצמיתות את כל המידע המקושר לטלפון "+x.phone+"?",String(x.phone).replace(/\D/g,""),function(){api("/api/admin/deletion/done",{id:x.id}).then(function(j){toast(j.deleted?"נמחקו "+j.deleted+" רשומות":"סומן כבוצע");load()})})};
     row.appendChild(b);dl.appendChild(row)});
 
+  function mapWarn(s){
+    if(s.mode!=="available"||s.map_src)return "";
+    var why=!String(s.city||"").trim()?"לא הוזנה עיר. שליח זמין בלי עיר מוכרת לא מוצג במפה - יש להזין עיר.":"העיר '"+String(s.city)+"' לא זוהתה. יש לתקן את שם העיר כדי שהשליח יוצג במפה.";
+    return ' <span class="badge warn" title="'+esc(why)+'">⚠ לא במפה</span>';
+  }
   var sb=$("shTable").querySelector("tbody");sb.innerHTML="";
   d.shluchim.forEach(function(s){
     var tr=document.createElement("tr");
-    tr.innerHTML="<td><b>"+esc(s.name)+"</b></td><td dir=ltr>"+esc(dispPhone(s.phone))+"</td><td>"+esc(s.city||"")+"</td><td>"+esc(TR[s.transport]||s.transport||"")+'</td><td><span class="badge '+esc(s.mode)+'">'+esc(MODE[s.mode]||s.mode)+"</span></td><td>"+(s.month_count||0)+" / "+(s.done_count||0)+"</td>";
+    tr.innerHTML="<td><b>"+esc(s.name)+"</b></td><td dir=ltr>"+esc(dispPhone(s.phone))+"</td><td>"+esc(s.city||"")+"</td><td>"+esc(TR[s.transport]||s.transport||"")+'</td><td><span class="badge '+esc(s.mode)+'">'+esc(MODE[s.mode]||s.mode)+"</span>"+mapWarn(s)+"</td><td>"+(s.month_count||0)+" / "+(s.done_count||0)+"</td>";
     var td=document.createElement("td");var b=document.createElement("button");b.className="act del";b.textContent="מחיקה";
     b.onclick=function(){if(confirm("למחוק את השליח "+s.name+"?"))api("/api/admin/shaliach/delete",{id:s.id}).then(function(j){if(!j.ok)toast(j.code==="busy"?"יש לו הזמנה פעילה":"שגיאה");load()})};
     td.appendChild(b);tr.appendChild(td);sb.appendChild(tr)});
@@ -253,4 +259,4 @@ load();loadBulletin();setInterval(load,15000);
 </script>
 <script src="/vendor/leaflet.js"></script><script src="/admin-stands.js?v=16"></script>
 </body>
-  </html>
+</html>
